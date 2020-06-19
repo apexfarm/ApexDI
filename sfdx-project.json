@@ -1,0 +1,14 @@
+{
+  "packageDirectories": [
+    {
+      "path": "apex-di",
+      "package": "ApexDI",
+      "versionName": "ver 1.0",
+      "versionNumber": "1.0.0.NEXT",
+      "default": true
+    }
+  ],
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "48.0"
+}
