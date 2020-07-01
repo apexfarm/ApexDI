@@ -33,31 +33,51 @@
 @IsTest
 public class DITest implements DI.IServiceProvider {
 
-    public static Object getService(Type serviceType) {
-        return provider.getService(serviceType);
+    @IsTest
+    static void test_kind_singleton() {
+        GlobalConfiguration config1 = (GlobalConfiguration)getService(GlobalConfiguration.class);
+        GlobalConfiguration config2 = (GlobalConfiguration)getService(GlobalConfiguration.class);
+        System.assert(config1 == config2);
     }
 
-    public static List<Object> getService(Type serviceType, List<Object> services) {
-        return provider.getService(serviceType, services);
+    @IsTest
+    static void test_kind_transient() {
+        DBRepository repo1 = (DBRepository)getService(DBRepository.class);
+        DBRepository repo2 = (DBRepository)getService(DBRepository.class);
+        System.assert(repo1 != repo2);
     }
 
-    public static DI.IServiceProvider provider {
-        get {
-            if (provider == null) {
-                provider = new DI.ServiceCollection()
-                    .addSingleton(GlobalConfiguration.class)
-                    .addSingleton(ILogService.class, TableLogService.class)
-                    .addSingleton(ILogService.class, EmailLogService.class)
-                    .addSingleton(ILogService.class, new AWSS3LogServiceFactory())
-                    .addTransient(IDBContext.class, DBContext.class)
-                    .addTransient(IDBRepository.class, DBRepository.class)
-                    .addTransient(DBRepository.class)
-                    .addTransient(IAccountService.class, new AccountServiceFactory())
-                    .BuildServiceProvider();
-            }
-            return provider;
-        }
-        set;
+    @IsTest
+    static void test_kind_enumerable() {
+        List<ILogService> logServices = (List<ILogService>)getServices(List<ILogService>.class, new List<ILogService>());
+
+        System.assertEquals(3, logServices.size());
+        System.assert(logServices[0] instanceOf TableLogService);
+        System.assert(logServices[1] instanceOf EmailLogService);
+        System.assert(logServices[2] instanceOf AWSS3LogService);
+
+        ILogService logService = (ILogService)getService(ILogService.class);
+        System.assert(logService instanceOf AWSS3LogService);
+    }
+
+    @IsTest
+    static void test_kind_enumerable_transient() {
+        List<ILogService> logServices1 = (List<ILogService>)getServices(List<ILogService>.class, new List<ILogService>());
+        List<ILogService> logServices2 = (List<ILogService>)getServices(List<ILogService>.class, new List<ILogService>());
+
+        System.assertEquals(3, logServices1.size());
+        System.assertEquals(3, logServices2.size());
+        System.assert(logServices1[0] == logServices2[0]);
+        System.assert(logServices1[1] != logServices2[1]);
+        System.assert(logServices1[2] == logServices2[2]);
+    }
+
+    @IsTest
+    static void test_serviceProvider() {
+        DI.IServiceProvider serviceProvider = (DI.IServiceProvider)getService(DI.IServiceProvider.class);
+
+        IAccountService accountService = (IAccountService)serviceProvider.getService(IAccountService.class);
+        accountService.process(new List<Account> { new Account(), new Account(), new Account()});
     }
 
     @IsTest
@@ -67,21 +87,34 @@ public class DITest implements DI.IServiceProvider {
     }
 
     @IsTest
-    static void test_serviceCollection() {
-        List<ILogService> logServices = (List<ILogService>)getService(List<ILogService>.class, new List<ILogService>());
+    static void test_interface_scope() {
 
-        System.assertEquals(3, logServices.size());
-        System.assert(logServices[0] instanceOf TableLogService);
-        System.assert(logServices[1] instanceOf EmailLogService);
-        System.assert(logServices[2] instanceOf AWSS3LogService);
     }
 
-    @IsTest
-    static void test_serviceProvider() {
-        DI.IServiceProvider serviceProvider = (DI.IServiceProvider)getService(DI.IServiceProvider.class);
+    static DI.IServiceProvider provider {
+        get {
+            if (provider == null) {
+                provider = new DI.ServiceCollection()
+                    .addSingleton(GlobalConfiguration.class)
+                    .addSingleton(ILogService.class, TableLogService.class)
+                    .addTransient(ILogService.class, EmailLogService.class)
+                    .addSingleton(ILogService.class, new AWSS3LogServiceFactory())
+                    .addTransient(IDBContext.class, DBContext.class)
+                    .addTransient(DBRepository.class)
+                    .addTransient(IAccountService.class, new AccountServiceFactory())
+                    .BuildServiceProvider();
+            }
+            return provider;
+        }
+        set;
+    }
 
-        IAccountService accountService = (IAccountService)serviceProvider.getService(IAccountService.class);
-        accountService.process(new List<Account> { new Account(), new Account(), new Account()});
+    public static Object getService(Type serviceType) {
+        return provider.getService(serviceType);
+    }
+
+    public static List<Object> getServices(Type serviceType, List<Object> services) {
+        return provider.getServices(serviceType, services);
     }
 
     public interface ILogService {
@@ -181,10 +214,10 @@ public class DITest implements DI.IServiceProvider {
     public class AccountServiceFactory implements DI.IServiceFactory {
         public IAccountService newInstance(DI.IServiceProvider provider) {
             return new AccountService(
-                (List<ILogService>)provider.getService(List<ILogService>.class, new List<ILogService>()),
+                (List<ILogService>)provider.getServices(List<ILogService>.class, new List<ILogService>()),
                 (IDBContext)provider.getService(IDBContext.class),
-                (IDBRepository)provider.getService(IDBRepository.class),
-                (IDBRepository)provider.getService(IDBRepository.class),
+                (DBRepository)provider.getService(DBRepository.class),
+                (DBRepository)provider.getService(DBRepository.class),
                 (GlobalConfiguration)provider.getService(GlobalConfiguration.class)
             );
         }
