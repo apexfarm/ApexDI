@@ -1,8 +1,8 @@
-# Apex DI.Net
+# Apex DI
 
 ![](https://img.shields.io/badge/version-1.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-85%25-brightgreen.svg)
 
-A DI system ported from .Net Core for Apex classes. The APIs and internal implementations are almost identical to its [.Net Core Dependency Injection](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection?view=aspnetcore-3.1) counterpart. Except there is no scpoed lifetime in Apex, since Apex singltons are scoped OOTB.
+A DI system ported from .Net Core for Apex classes. The APIs and internal implementations are almost identical to its [.Net Core](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection?view=aspnetcore-3.1) counterpart. Except there is no scpoed lifetime in Apex, since all Apex singltons are scoped OOTB.
 
 ## Usage
 
@@ -10,8 +10,8 @@ A DI system ported from .Net Core for Apex classes. The APIs and internal implem
 
 Only two lifetimes of the servcies are supported:
 
-1. **Singleton**: only one instance will be instanciated for each service provider.
-2. **Transient**: new instance will be instanciated every time when `getService()` is called.
+1. **Singleton**: only one instance will be instanciated for each service provider per transaction.
+2. **Transient**: new instances will be created every time when `getService()` is called.
 
 ```java
 DI.IServiceProvider provider = new DI.ServiceCollection()
@@ -21,10 +21,12 @@ DI.IServiceProvider provider = new DI.ServiceCollection()
     .addSingleton(IServiceC.class, ServiceC1.class)
     .addSingleton(IServiceC.class, ServiceC2.class)
     .addSingleton(IServiceC.class, new ServiceC3.Factory())
+
     // 2. register transient services
     .addTransient(ServiceD.class)
     .addTransient(IServiceE.class, ServiceE.class)
     .addTransient(IAccountService.class, new AccountService.Factory())
+
      // 3. build the servcie provider
     .BuildServiceProvider();
 ```
@@ -53,7 +55,7 @@ A wrapper is necessary, so during unit test the `Application.provider` static va
 
 ```java
 public class Application implements DI.IServiceProvider {
-  	public static Object getService(Type serviceType) {
+    public static Object getService(Type serviceType) {
         return provider.getService(serviceType);
     }
 
@@ -102,7 +104,7 @@ public class AccountService implements IAccountService {
 
 ### Apex Database Context
 
-It is much easier to use the [Apex Database Context](https://github.com/apexfarm/ApexDatabaseContext) library with this Apex DI. Just register the `DBContext` and `DBRepository` as below:
+It is much easier to use the [Apex Database Context](https://github.com/apexfarm/ApexDatabaseContext) library with this Apex DI library. Just register the `DBContext` and `DBRepository` as below:
 
 ```java
 DI.IServiceProvider provider = new DI.ServiceCollection()
