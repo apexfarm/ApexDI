@@ -32,6 +32,21 @@
 
 @IsTest
 public class DITest implements DI.IServiceProvider {
+    @IsTest
+    static void test_no_assert() {
+        DI.ServiceDescriptor descriptor = new DI.ServiceDescriptor(
+            INoService.class, new List<Object>(), DI.ServiceLifetime.TransientLifeTime);
+    }
+
+    @IsTest
+    static void test_kind_none() {
+        INoService noService = (INoService)getService(INoService.class);
+        System.assertEquals(null, noService);
+
+        List<INoService> noServices = (List<INoService>)getServices(List<INoService>.class);
+        System.assertNotEquals(null, noServices);
+        System.assertEquals(0, noServices.size());
+    }
 
     @IsTest
     static void test_kind_singleton() {
@@ -49,7 +64,7 @@ public class DITest implements DI.IServiceProvider {
 
     @IsTest
     static void test_kind_enumerable() {
-        List<ILogService> logServices = (List<ILogService>)getServices(List<ILogService>.class, new List<ILogService>());
+        List<ILogService> logServices = (List<ILogService>)getServices(List<ILogService>.class);
 
         System.assertEquals(3, logServices.size());
         System.assert(logServices[0] instanceOf TableLogService);
@@ -62,8 +77,8 @@ public class DITest implements DI.IServiceProvider {
 
     @IsTest
     static void test_kind_enumerable_transient() {
-        List<ILogService> logServices1 = (List<ILogService>)getServices(List<ILogService>.class, new List<ILogService>());
-        List<ILogService> logServices2 = (List<ILogService>)getServices(List<ILogService>.class, new List<ILogService>());
+        List<ILogService> logServices1 = (List<ILogService>)getServices(List<ILogService>.class);
+        List<ILogService> logServices2 = (List<ILogService>)getServices(List<ILogService>.class);
 
         System.assertEquals(3, logServices1.size());
         System.assertEquals(3, logServices2.size());
@@ -113,9 +128,11 @@ public class DITest implements DI.IServiceProvider {
         return provider.getService(serviceType);
     }
 
-    public static List<Object> getServices(Type serviceType, List<Object> services) {
-        return provider.getServices(serviceType, services);
+    public static List<Object> getServices(Type serviceType) {
+        return provider.getServices(serviceType);
     }
+
+    public interface INoService {}
 
     public interface ILogService {
         void log(String message);
@@ -214,7 +231,7 @@ public class DITest implements DI.IServiceProvider {
     public class AccountServiceFactory implements DI.IServiceFactory {
         public IAccountService newInstance(DI.IServiceProvider provider) {
             return new AccountService(
-                (List<ILogService>)provider.getServices(List<ILogService>.class, new List<ILogService>()),
+                (List<ILogService>)provider.getServices(List<ILogService>.class),
                 (IDBContext)provider.getService(IDBContext.class),
                 (DBRepository)provider.getService(DBRepository.class),
                 (DBRepository)provider.getService(DBRepository.class),

@@ -31,13 +31,14 @@
  */
 
 public with sharing class DI {
-
+    @TestVisible
     enum ServiceLifetime {
         TransientLifeTime,
         SingletonLifeTime,
         ScopedLifeTime
     }
 
+    @TestVisible
     class ServiceDescriptor {
         ServiceLifetime lifetime { get; private set; }
         Type serviceType { get; private set; }
@@ -51,6 +52,7 @@ public with sharing class DI {
             this.lifetime = lifetime;
         }
 
+        @TestVisible
         ServiceDescriptor(Type serviceType, Object implementationInstance, ServiceLifetime lifetime) {
             this.serviceType = serviceType;
             this.implementationInstance = implementationInstance;
@@ -128,8 +130,8 @@ public with sharing class DI {
             return engine.getService(serviceType);
         }
 
-        public List<Object> getServices(Type serviceType, List<Object> services) {
-            return engine.getServices(serviceType, services);
+        public List<Object> getServices(Type serviceType) {
+            return engine.getServices(serviceType);
         }
 
         public void onCreate(ServiceCallSite callSite) {
@@ -168,7 +170,8 @@ public with sharing class DI {
             return this.getService(serviceType, this.root);
         }
 
-        public List<Object> getServices(Type serviceType, List<Object> services) {
+        public List<Object> getServices(Type serviceType) {
+            List<Object> services = (List<Object>)serviceType.newInstance();
             if (services != null) {
                 for (Object service : (List<Object>)this.getService(serviceType, this.root)) {
                     services.add(service);
@@ -248,7 +251,8 @@ public with sharing class DI {
             return this.engine.getService(serviceType, this);
         }
 
-        public List<Object> getServices(Type serviceType, List<Object> services) {
+        public List<Object> getServices(Type serviceType) {
+            List<Object> services = (List<Object>)serviceType.newInstance();
             for (Object service : (List<Object>)this.getService(serviceType)) {
                 services.add(service);
             }
@@ -551,7 +555,7 @@ public with sharing class DI {
 
     public interface IServiceProvider {
         Object getService(Type serviceType);
-        List<Object> getServices(Type serviceType, List<Object> services);
+        List<Object> getServices(Type serviceType);
     }
 
     interface IServiceProviderEngine extends IServiceProvider {
