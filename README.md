@@ -75,7 +75,7 @@ public interface IAccountService {}
 public with sharing class AccountService implements IAccountService {}
 
 DI.ServiceProvider provider = DI.services()            // 1. create a DI.ServiceCollection
-    .addTransient('IAccountService', 'AccountService') // 2. register a service interface with its implementation class
+    .addTransient('IAccountService', 'AccountService') // 2. register a service
     .BuildServiceProvider();                           // 3. build a DI.ServiceProvider
 
 IAccountService accountService = (IAccountService) provider.getService(IAccountService.class);
@@ -95,9 +95,14 @@ DI.ServiceProvider provider = DI.services()
     .BuildServiceProvider();
 
 // transient lifetime: different services are returned
-Assert.areNotEqual(provider.getService(IAccountService.class), provider.getService(IAccountService.class));
+Assert.areNotEqual(
+    provider.getService(IAccountService.class), 
+    provider.getService(IAccountService.class));
+
 // singleton lifetime: the same service is returned
-Assert.areEqual(provider.getService(IUtility.class), provider.getService(IUtility.class));
+Assert.areEqual(
+    provider.getService(IUtility.class), 
+    provider.getService(IUtility.class));
 ```
 
 ### 1.2 Register with Concrete Types
@@ -315,7 +320,8 @@ public class AccountControllerTest {
         }
 
         public override void build(DI.IServiceCollection services) {
-            AccountService mockAccountService = (AccountService) ATK.mock(AccountService.class); // the mockup service
+            // the mockup service
+            AccountService mockAccountService = (AccountService) ATK.mock(AccountService.class);
             ATK.startStubbing();
             ATK.given(accountServiceMock.getAccounts(3)).willReturn(
                 ATK.prepare(Account.SObjectType, 3)
@@ -324,7 +330,8 @@ public class AccountControllerTest {
             });
             ATK.stopStubbing();
 
-            services.addTransient('IAccountService', mockAccountService);                       // register an instance directly
+            // register an instance directly
+            services.addTransient('IAccountService', mockAccountService);
         }
     }
 }
