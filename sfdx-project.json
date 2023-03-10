@@ -3,12 +3,16 @@
     {
       "path": "apex-di",
       "package": "ApexDI",
-      "versionName": "ver 1.0",
-      "versionNumber": "1.0.0.NEXT",
+      "versionName": "ver 2.0",
+      "versionNumber": "2.0.0.NEXT",
       "default": true
     }
   ],
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "48.0"
+  "sourceApiVersion": "56.0",
+  "packageAliases": {
+    "ApexDI": "0Ho2v000000PBFqCAO",
+    "ApexDI@2.0.0-1": "04t2v000007CfeFAAS"
+  }
 }
