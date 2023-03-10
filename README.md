@@ -66,8 +66,6 @@ public with sharing class AccountController {
   - [4.5 DI.Module Abstract Class](#45-dimodule-abstract-class)
 - [5. License](#5-license)
 
-<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
-
 ## 1. Services
 
 Here is a simple example about how to register the service class into a DI container, and consume it. We use the type name strings during service registration, but use strong types during service resolution phase. This is because in apex, each time a transaction reaches a class declaration on the first time, all its static properties are going to be initialized and loaded at that time. If an Apex DI framework registered with hundreds of classes/interfaces with strong types, it will initialize all their static properties, which will harm the performance badly.
