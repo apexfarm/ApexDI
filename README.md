@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-2.0-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-%3E90%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-2.0.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-%3E90%25-brightgreen.svg)
 
 A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework that can help:
 
@@ -11,10 +11,10 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
    - Create boundaries to avoid loading of unused services into current module.
    - Create dependencies to increase the reusability of services in other modules.
 
-| Environment           | Installation Link                                                                                                                                         | Version |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfeFAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.0 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfeFAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.0 |
+| Environment           | Installation Link                                                                                                                                         | Version   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfePAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.0.1 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfePAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.0.1 |
 
 Here is an example controller, when `DI.Module` is used to resolve services. As you can see, the controller doesn't depend on concrete types, it becomes thin and clean!
 
@@ -96,12 +96,12 @@ DI.ServiceProvider provider = DI.services()
 
 // transient lifetime: different services are returned
 Assert.areNotEqual(
-    provider.getService(IAccountService.class), 
+    provider.getService(IAccountService.class),
     provider.getService(IAccountService.class));
 
 // singleton lifetime: the same service is returned
 Assert.areEqual(
-    provider.getService(IUtility.class), 
+    provider.getService(IUtility.class),
     provider.getService(IUtility.class));
 ```
 
@@ -188,7 +188,10 @@ We can also define the factory as an inner class of the service, so we don't nee
 ```java
 public with sharing class AccountService implements IAccountService {
     private ILogger logger { get; set; }
-    public AccountService(ILogger logger) { this.logger = logger; }
+
+    public AccountService(ILogger logger) {
+        this.logger = logger;
+    }
 
     public class Factory implements DI.ServiceFactory {              // factory declared as inner class
         public IAccountService newInstance(DI.ServiceProvider provider) {
@@ -214,11 +217,11 @@ It is highly recommended to use a `DI.Module` to manage service registrations, s
 
 ### 2.1 Module Creation
 
-A module is defined with a class inherited from `DI.Module`. Override method `void build(DI.IServiceCollection services)` to register services into it. It can be resolved later with `DI.getModule(Type moduleType)` API. Module will be resolved as singleton, so every time the same instance is returned by `getModule` for the same module class.
+A module is defined with a class inherited from `DI.Module`. Override method `void configure(DI.IServiceCollection services)` to register services into it. It can be resolved later with `DI.getModule(Type moduleType)` API. Module will be resolved as singleton, so every time the same instance is returned by `getModule` for the same module class.
 
 ```java
 public class LogModule extends DI.Module {
-    public override void build(DI.IServiceCollection services) {
+    public override void configure(DI.IServiceCollection services) {
         services.addSingleton('ILogger', 'AWSS3Logger');
     }
 }
@@ -238,7 +241,7 @@ public class SalesModule extends DI.Module {
         modules.add('LogModule');
     }
 
-    public override void build(DI.IServiceCollection services) {
+    public override void configure(DI.IServiceCollection services) {
         services
             .addSingleton('IAccountRepository', 'AccountRepository')
             .addTransientFactory('IAccountService', 'AccountService');
@@ -272,7 +275,7 @@ When project become huge, we can divide modules into different folders, so it gi
 There is a controller defined at the top of the page. We use it as an example to create the test class `AccountControllerTest`, because controller is special (i.e. controller is running in static context, while our DI is in instance context). We try to replace the module returned by `DI.getModule(SalesModule.cass)` with a mock module at runtime, so mock up services can be injected into the controller.
 
 1. Use `DI.setModule` API to replace `SalesModule` with the `MockSalesModule` defined as inner class. **Note**: `DI.setModule` must be called before the first reference of the `AccountController` class.
-1. Extend `SalesModule` with `MockSalesModule`. **Note**: both the `SalesModule` class and its `build` method need to be declared as `virtual` prior.
+1. Extend `SalesModule` with `MockSalesModule`. **Note**: both the `SalesModule` class and its `configure(services)` method need to be declared as `virtual` prior.
 1. Use `services.addTransient` to override `IAccountService` with the `MockAccountService` inner class.
 
 ```java
@@ -286,8 +289,8 @@ public class AccountControllerTest {
     }
 
     public class MockSalesModule extends SalesModule {                 // #2
-        protected override void build(DI.ServiceCollection services) { // #3
-            super.build(services);
+        protected override void configure(DI.ServiceCollection services) { // #3
+            super.configure(services);
             services.addTransient('IAccountService', 'AccountControllerTest.MockAccountService');
         }
     }
@@ -319,7 +322,7 @@ public class AccountControllerTest {
             modules.add('SalesModule');
         }
 
-        public override void build(DI.IServiceCollection services) {
+        public override void configure(DI.IServiceCollection services) {
             // the mockup service
             AccountService mockAccountService = (AccountService) ATK.mock(AccountService.class);
             ATK.startStubbing();
@@ -423,10 +426,10 @@ Implement this interface to define a factory class to create a service with cons
 
 Implement this interface to define a module class. It is also an implementation of `DI.ServiceProvider` interface, so all `DI.ServiceProvider` methods can also be invoked.
 
-| Methods                                                        | Description                                                                |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `protected virtual void import(List<String> modules)`          | Override this method to import other module services into this module.     |
-| `protected abstract void build(DI.ServiceCollection services)` | [**Required**] Override this method to register services into this module. |
+| Methods                                                            | Description                                                                |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `protected virtual void import(List<String> modules)`              | Override this method to import other module services into this module.     |
+| `protected abstract void configure(DI.ServiceCollection services)` | [**Required**] Override this method to register services into this module. |
 
 ## 5. License
 

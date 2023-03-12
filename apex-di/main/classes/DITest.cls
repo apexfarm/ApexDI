@@ -456,7 +456,7 @@ public class DITest {
     }
 
     public class LogModule extends DI.Module {
-        protected override void build(DI.ServiceCollection services) {
+        protected override void configure(DI.ServiceCollection services) {
             services.addSingleton('DITest.ILogger', 'DITest.TableLogger');
             services.addTransient('DITest.ILogger', 'DITest.EmailLogger');
             services.addSingletonFactory('DITest.ILogger', 'DITest.AWSS3LoggerFactory');
@@ -468,7 +468,7 @@ public class DITest {
             modules.add('DITest.LogModule');
         }
 
-        protected override void build(DI.ServiceCollection services) {
+        protected override void configure(DI.ServiceCollection services) {
             services.addTransient('DITest.IProductService', 'DITest.ProductService');
             services.addSingleton('DITest.ModuleSettings', new ModuleSettings('ShopModule Settings'));
         }
@@ -480,15 +480,15 @@ public class DITest {
             modules.add('DITest.ShopModule');
         }
 
-        protected override virtual void build(DI.ServiceCollection services) {
+        protected override virtual void configure(DI.ServiceCollection services) {
             services.addTransientFactory('DITest.ICartService', 'DITest.CartServiceFactory');
             services.addSingleton('DITest.ModuleSettings', new ModuleSettings('CartModule Settings'));
         }
     }
 
     public class TestCartModule extends CartModule {
-        protected override void build(DI.ServiceCollection services) {
-            super.build(services);
+        protected override void configure(DI.ServiceCollection services) {
+            super.configure(services);
         }
     }
 

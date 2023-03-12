@@ -31,7 +31,7 @@ public with sharing class DI {
     // ==============
     // #region Module
     // Module is provided specifically for Salesforce to register and use services conveniently
-    public abstract class Module implements ServiceProvider {
+    public abstract class Module implements ServiceProvider, IModule {
         private ServiceCollection services;
         private ServiceProvider provider;
 
@@ -54,7 +54,10 @@ public with sharing class DI {
         protected virtual void import(List<String> modules) {
         }
 
-        protected abstract void build(ServiceCollection services);
+        // protected virtual void build(ServiceCollection services) {
+        // }
+
+        protected abstract void configure(ServiceCollection services);
     }
 
     public static void setModule(Type replacedModuleType, Type moduleType) {
@@ -100,7 +103,7 @@ public with sharing class DI {
                 module.services.addCollection(importedModule.services);
             }
 
-            module.build(module.services);
+            module.configure(module.services);
             module.provider = module.services.buildServiceProvider();
             MODULE_CACHE.put(replacedModuleType, module);
         }
@@ -765,6 +768,11 @@ public with sharing class DI {
 
     interface IServiceRealizationFunc {
         Object invoke(ServiceProviderEngineScope scope);
+    }
+
+    interface IModule {
+        void import(List<String> modules);
+        void configure(ServiceCollection services);
     }
 
     // #endregion
