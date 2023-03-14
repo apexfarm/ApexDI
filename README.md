@@ -110,12 +110,12 @@ Every service has a lifetime, the library supports three different lifetimes:
 DI.ServiceProvider providerA = DI.services()
     .addTransient('IAccountService', 'AccountService') // 1. register transient services
     .addSingleton('IUtility', 'Utility')               // 2. register singleton services
-    .addScoped('ILogger', 'AWSS3Logger')               // 3. register scoped services
+    .addScoped('ILogger', 'TableLogger')               // 3. register scoped services
     .BuildServiceProvider();
 
 DI.ServiceProvider providerB = DI.services()
     .addSingleton('IUtility', 'Utility')               // 2. register singleton services
-    .addScoped('ILogger', 'AWSS3Logger')               // 3. register scoped services
+    .addScoped('ILogger', 'TableLogger')               // 3. register scoped services
     .BuildServiceProvider();
 
 // 1. Transient Lifetime:
@@ -160,7 +160,8 @@ Multiple different service implementations of the same abstraction/interface can
 ```java
 public interface ILogger { void error(); void warn(); }
 public class EmailLogger implements ILogger {} // email errors to developers or adminstrators
-public class TableLogger implements ILogger {} // save errors to a backend database
+public class TableLogger implements ILogger {} // save errors to salesforce sObject database
+public class AWSS3Logger implements ILogger {} // save errors to AWS S3 Storage
 
 DI.ServiceProvider provider = DI.services()
     .addSingleton('ILogger', 'EmailLogger')
@@ -307,7 +308,7 @@ public class SalesModule extends DI.Module {
     public override void configure(DI.ServiceCollection services) {
         services
             .addSingleton('IAccountRepository', 'AccountRepository')
-            .addTransientFactory('IAccountService', 'AccountService');
+            .addTransient('IAccountService', 'AccountService');
     }
 }
 ```
