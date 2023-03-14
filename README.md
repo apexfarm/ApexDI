@@ -50,6 +50,10 @@ public with sharing class AccountController {
 }
 ```
 
+### Online Articles
+
+- [Salesforce Dependency Injection with Apex DI](https://medium.com/@jeff.jianfeng.jin/salesforce-project-with-apex-dependency-injection-a3d0e369be25) (medium link)
+
 ---
 
 ## Table of Contents
