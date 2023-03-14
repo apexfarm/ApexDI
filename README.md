@@ -296,7 +296,7 @@ A module can also depends on the other modules to maximize module reusability. F
 
 ```java
 public class SalesModule extends DI.Module {
-    public override void imports(DI.ModuleCollection modules) { // declare module dependencies
+    public override void import(DI.ModuleCollection modules) { // declare module dependencies
         modules.add('LogModule');
     }
 
@@ -313,14 +313,14 @@ public class SalesModule extends DI.Module {
 
 ```java
 public class Module1 extends DI.Module {
-    public override void imports(DI.ModuleCollection modules) {
+    public override void import(DI.ModuleCollection modules) {
         modules.add('Module5');
         modules.add('Module2');
     }
 }
 
 public class Module2 extends DI.Module {
-    public override void imports(DI.ModuleCollection modules) {
+    public override void import(DI.ModuleCollection modules) {
         modules.add('Module4');
         modules.add('Module3');
     }
@@ -411,7 +411,7 @@ public class AccountControllerTest {
     }
 
     public class MockSalesModule extends DI.Module {
-        public override void imports(DI.ModuleCollection modules) {
+        public override void import(DI.ModuleCollection modules) {
             modules.add('SalesModule');
         }
 
