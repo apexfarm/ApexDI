@@ -365,7 +365,7 @@ When project becomes huge, we can divide modules into different folders, so it g
 
 ### 4.1 Test with Mockup Replacement
 
-There is a controller defined at the top of the page. We use it as an example to create the test class `AccountControllerTest`, because controller is special (i.e. controller is running in static context, while our DI is in instance context). We try to replace the module returned by `DI.getModule(SalesModule.cass)` with a mock module at runtime, so mock up services can be injected into the controller.
+There is a controller defined at the top of the page. And we can use it as an example to create the test class `AccountControllerTest`. Controller is special, because it is running under static context, while our DI is under instance context. Here we try to replace the module returned by `DI.getModule(SalesModule.cass)` with a mock module at runtime.
 
 1. Use `DI.addModule` API to replace `SalesModule` with the `MockSalesModule` defined as inner class. **Note**: `DI.addModule` must be called before the first reference of the `AccountController` class.
 1. Extend `SalesModule` with `MockSalesModule`. **Note**: both the `SalesModule` class and its `configure(services)` method need to be declared as `virtual` prior.
