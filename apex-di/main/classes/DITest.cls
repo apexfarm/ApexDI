@@ -17,13 +17,40 @@
 
 @IsTest
 public class DITest {
+    public class ExceptionModule1 extends DI.Module {
+        protected override void import(DI.ModuleCollection modules) {
+            modules.add('DITest.INoService');
+        }
+
+        protected override void configure(DI.ServiceCollection services) {
+        }
+    }
+
+    public class ExceptionModule2 extends DI.Module {
+        protected override void import(DI.ModuleCollection modules) {
+            modules.add('DITest.INoService', 'DITest.INoService');
+        }
+
+        protected override void configure(DI.ServiceCollection services) {
+        }
+    }
+
+    public class ExceptionModule3 extends DI.Module {
+        protected override void import(DI.ModuleCollection modules) {
+            modules.add('DITest.LogModule', 'DITest.INoService');
+        }
+
+        protected override void configure(DI.ServiceCollection services) {
+        }
+    }
+
     @IsTest
     static void test_provider_exceptions() {
         Exception exp;
         try {
             Type noType = null;
             provider.getService(noType);
-        } catch (IllegalArgumentException ex) {
+        } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -33,25 +60,7 @@ public class DITest {
         try {
             Type noType = null;
             provider.getServices(noType);
-        } catch (IllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            provider.getService('NOService');
-        } catch (IllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            provider.getServices('NOService');
-        } catch (IllegalArgumentException ex) {
+        } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -60,7 +69,7 @@ public class DITest {
         exp = null;
         try {
             DI.getModule(INoService.class);
-        } catch (IllegalArgumentException ex) {
+        } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -68,8 +77,8 @@ public class DITest {
 
         exp = null;
         try {
-            DI.setModule(INoService.class, INoService.class);
-        } catch (IllegalArgumentException ex) {
+            DI.addModule(INoService.class, INoService.class);
+        } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -77,8 +86,8 @@ public class DITest {
 
         exp = null;
         try {
-            DI.setModule(LogModule.class, INoService.class);
-        } catch (IllegalArgumentException ex) {
+            DI.addModule(LogModule.class, INoService.class);
+        } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -87,7 +96,7 @@ public class DITest {
         exp = null;
         try {
             provider.getService(IWrongService.class);
-        } catch (TypeException ex) {
+        } catch (DI.DITypeException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -96,7 +105,43 @@ public class DITest {
         exp = null;
         try {
             provider.getService(IWrongFactory.class);
-        } catch (TypeException ex) {
+        } catch (DI.DITypeException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
+        System.debug(exp);
+
+        exp = null;
+        try {
+            provider.getService(IWrongFactoryReturn.class);
+        } catch (DI.DITypeException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
+        System.debug(exp);
+
+        exp = null;
+        try {
+            DI.getModule(ExceptionModule1.class);
+        } catch (DI.DIIllegalArgumentException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
+        System.debug(exp);
+
+        exp = null;
+        try {
+            DI.getModule(ExceptionModule2.class);
+        } catch (DI.DIIllegalArgumentException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
+        System.debug(exp);
+
+        exp = null;
+        try {
+            DI.getModule(ExceptionModule3.class);
+        } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -109,13 +154,6 @@ public class DITest {
         Assert.areEqual(null, noService);
 
         List<INoService> noServices = (List<INoService>) provider.getServices(INoService.class);
-        Assert.areNotEqual(null, noServices);
-        Assert.areEqual(0, noServices.size());
-
-        noService = (INoService) provider.getService('DITest.INoService');
-        Assert.areEqual(null, noService);
-
-        noServices = (List<INoService>) provider.getServices('DITest.INoService');
         Assert.areNotEqual(null, noServices);
         Assert.areEqual(0, noServices.size());
     }
@@ -168,6 +206,25 @@ public class DITest {
     }
 
     @IsTest
+    static void test_provider_kind_factory_polymorphism() {
+        DI.ServiceProvider provider = DI.services()
+            .addScopedFactory('DITest.ILogger', 'DITest.LoggerFactory')
+            .addSingletonFactory('DITest.ILogger', 'DITest.LoggerFactory<DITest.TableLogger>')
+            .addScopedFactory('DITest.ILogger', 'DITest.LoggerFactory<DITest.EmailLogger>')
+            .addTransientFactory('DITest.ILogger', 'DITest.LoggerFactory<DITest.AWSS3Logger>')
+            .buildServiceProvider();
+
+        List<ILogger> logger = (List<ILogger>) provider.getServices(ILogger.class);
+
+        Assert.areEqual(4, logger.size());
+
+        Assert.isTrue(logger[0] instanceof AWSS3Logger);
+        Assert.isTrue(logger[1] instanceof EmailLogger);
+        Assert.isTrue(logger[2] instanceof TableLogger);
+        Assert.isTrue(logger[3] instanceof NullLogger);
+    }
+
+    @IsTest
     static void test_provider_kind_factory() {
         IAccountService accountService = (IAccountService) provider.getService(IAccountService.class);
         accountService.process(new List<Account>{ new Account(), new Account(), new Account() });
@@ -188,18 +245,62 @@ public class DITest {
         Assert.areEqual('CartModule Settings', controller.getSettings());
 
         DI.Module cartModule = DI.getModule(CartModule.class);
-        ILogger loggerFromType = (ILogger) cartModule.getService(ILogger.class);
-        List<ILogger> loggersFromType = (List<ILogger>) cartModule.getServices(ILogger.class);
-        ILogger loggerFromString = (ILogger) cartModule.getService('DITest.ILogger');
-        List<ILogger> loggersFromString = (List<ILogger>) cartModule.getServices('DITest.ILogger');
+        ILogger logger = (ILogger) cartModule.getService(ILogger.class);
+        List<ILogger> loggers = (List<ILogger>) cartModule.getServices(ILogger.class);
+    }
+
+    @IsTest
+    static void test_module_kind_singlton() {
+        DI.Module logModule = DI.getModule(LogModule.class);
+        DI.Module cartModule = DI.getModule(CartModule.class);
+
+        Assert.isTrue(logModule instanceof LogModule);
+        Assert.isTrue(cartModule instanceof CartModule);
+
+        ILogger logger1 = (ILogger) logModule.getService(ILogger.class);
+        ILogger logger2 = (ILogger) cartModule.getService(ILogger.class);
+
+        Assert.isTrue(logger1 instanceof AWSS3Logger);
+        Assert.isTrue(logger2 instanceof AWSS3Logger);
+        Assert.areEqual(logger1, logger2);
+    }
+
+    @IsTest
+    static void test_module_kind_scoped() {
+        DI.Module shopModule = DI.getModule(ShopModule.class);
+        DI.Module cartModule = DI.getModule(CartModule.class);
+
+        Assert.isTrue(shopModule instanceof ShopModule);
+        Assert.isTrue(cartModule instanceof CartModule);
+
+        IProductService productService1 = (IProductService) shopModule.getService(IProductService.class);
+        IProductService productService2 = (IProductService) shopModule.getService(IProductService.class);
+        IProductService productService3 = (IProductService) cartModule.getService(IProductService.class);
+        IProductService productService4 = (IProductService) cartModule.getService(IProductService.class);
+
+        Assert.isTrue(productService1 instanceof ProductService);
+        Assert.isTrue(productService2 instanceof ProductService);
+        Assert.isTrue(productService3 instanceof ProductService);
+        Assert.isTrue(productService4 instanceof ProductService);
+        Assert.areEqual(productService1, productService2);
+        Assert.areEqual(productService3, productService4);
+        Assert.areNotEqual(productService1, productService3);
     }
 
     @IsTest
     static void test_module_replacement() {
-        DI.setModule(CartModule.class, TestCartModule.class);
+        DI.addModule(CartModule.class, TestCartModule.class);
         DI.Module module = DI.getModule(CartModule.class);
-        Assert.isTrue(module instanceof CartModule);
         Assert.isTrue(module instanceof TestCartModule);
+    }
+
+    @IsTest
+    static void test_module_replacement2() {
+        DI.Module module = DI.getModule(TestCartModule2.class);
+        Assert.isTrue(module instanceof TestCartModule2);
+
+        module = DI.getModule(ShopModule.class);
+        Assert.isTrue(module instanceof TestShopModule);
     }
 
     // ============================
@@ -211,6 +312,7 @@ public class DITest {
                 provider = DI.services()
                     .addSingleton('DITest.IWrongService', 'DITest.WrongService')
                     .addSingletonFactory('DITest.IWrongFactory', 'DITest.WrongFactory')
+                    .addSingletonFactory('DITest.IWrongFactoryReturn', 'DITest.AWSS3LoggerFactory<DITest.AWSS3Logger>')
                     .addSingleton('DITest.GlobalConfiguration', new GlobalConfiguration())
                     .addSingleton('DITest.GlobalConfiguration')
                     .addSingleton('DITest.ILogger', 'DITest.TableLogger')
@@ -237,6 +339,9 @@ public class DITest {
     }
 
     public interface IWrongFactory {
+    }
+
+    public interface IWrongFactoryReturn {
     }
 
     public class WrongFactory {
@@ -275,9 +380,27 @@ public class DITest {
         }
     }
 
+    public class NullLogger implements ILogger {
+        public void log(String message) {
+        }
+    }
+
     public class AWSS3LoggerFactory implements DI.ServiceFactory {
-        public Object newInstance(DI.ServiceProvider serviceProvider) {
+        public Object newInstance(Type serviceType, DI.ServiceProvider serviceProvider) {
             return new AWSS3Logger();
+        }
+    }
+
+    public class LoggerFactory implements DI.ServiceFactory {
+        public ILogger newInstance(Type serviceType, DI.ServiceProvider serviceProvider) {
+            if (serviceType == AWSS3Logger.class) {
+                return new AWSS3Logger();
+            } else if (serviceType == EmailLogger.class) {
+                return new EmailLogger();
+            } else if (serviceType == TableLogger.class) {
+                return new TableLogger();
+            }
+            return new NullLogger();
         }
     }
 
@@ -336,7 +459,7 @@ public class DITest {
     }
 
     public class AccountServiceFactory implements DI.ServiceFactory {
-        public IAccountService newInstance(DI.ServiceProvider provider) {
+        public IAccountService newInstance(Type serviceType, DI.ServiceProvider provider) {
             return new AccountService(
                 (List<ILogger>) provider.getServices(ILogger.class),
                 (IDBContext) provider.getService(IDBContext.class),
@@ -437,12 +560,32 @@ public class DITest {
     }
 
     public class CartServiceFactory implements DI.ServiceFactory {
-        public ICartService newInstance(DI.ServiceProvider provider) {
+        public ICartService newInstance(Type serviceType, DI.ServiceProvider provider) {
             return new CartService(
                 (IProductService) provider.getService(IProductService.class),
                 (ModuleSettings) provider.getService(ModuleSettings.class),
                 (ILogger) provider.getService(ILogger.class)
             );
+        }
+    }
+
+    public class ServiceResolver {
+        DI.ServiceProvider provider { get; set; }
+
+        public ServiceResolver(DI.ServiceProvider provider) {
+            this.provider = provider;
+        }
+
+        public Object getService(Type instanceType) {
+            if (instanceType == CartService.class) {
+                return new CartService(
+                    (IProductService) provider.getService(IProductService.class),
+                    (ModuleSettings) provider.getService(ModuleSettings.class),
+                    (ILogger) provider.getService(ILogger.class)
+                );
+            }
+
+            return null;
         }
     }
 
@@ -463,19 +606,19 @@ public class DITest {
         }
     }
 
-    public class ShopModule extends DI.Module {
-        protected override void import(List<String> modules) {
+    public virtual class ShopModule extends DI.Module {
+        protected override virtual void import(DI.ModuleCollection modules) {
             modules.add('DITest.LogModule');
         }
 
-        protected override void configure(DI.ServiceCollection services) {
-            services.addTransient('DITest.IProductService', 'DITest.ProductService');
+        protected override virtual void configure(DI.ServiceCollection services) {
+            services.addScoped('DITest.IProductService', 'DITest.ProductService');
             services.addSingleton('DITest.ModuleSettings', new ModuleSettings('ShopModule Settings'));
         }
     }
 
     public virtual class CartModule extends DI.Module {
-        protected override void import(List<String> modules) {
+        protected override virtual void import(DI.ModuleCollection modules) {
             modules.add('DITest.LogModule');
             modules.add('DITest.ShopModule');
         }
@@ -486,7 +629,24 @@ public class DITest {
         }
     }
 
+    public class TestShopModule extends ShopModule {
+        protected override void configure(DI.ServiceCollection services) {
+            super.configure(services);
+        }
+    }
+
     public class TestCartModule extends CartModule {
+        protected override void configure(DI.ServiceCollection services) {
+            super.configure(services);
+        }
+    }
+
+    public class TestCartModule2 extends CartModule {
+        protected override void import(DI.ModuleCollection modules) {
+            super.import(modules);
+            modules.add('DITest.ShopModule', 'DITest.TestShopModule');
+        }
+
         protected override void configure(DI.ServiceCollection services) {
             super.configure(services);
         }
