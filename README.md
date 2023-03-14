@@ -2,7 +2,7 @@
 
 ![](https://img.shields.io/badge/version-2.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-%3E90%25-brightgreen.svg)
 
-A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework that can help:
+A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework ported from .Net Core. It can help:
 
 1. Adopt some of the best practices of dependency injection pattern:
    - Decouple implementations and code against abstractions.
@@ -21,7 +21,7 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
 ### **v2.1 Release Notes**
 
 - Add scoped lifetime ([jump to section](#11-service-lifetime))
-- Support factory polymorphism ([jump to section](#23--factory-polymorphism))
+- Support factory polymorphism ([jump to section](#23-factory-polymorphism))
 
 ---
 
@@ -58,11 +58,10 @@ public with sharing class AccountController {
   - [1.1 Service Lifetime](#11-service-lifetime)
   - [1.2 Register with Concrete Types](#12-register-with-concrete-types)
   - [1.3 Register with Multiple Implementations](#13-register-with-multiple-implementations)
-  - [1.4 Register with Factory](#14-register-with-factory)
-- [2. Factory](#2-Factory)
+- [2. Factory](#2-factory)
   - [2.1 Constructor Injection](#21-constructor-injection)
   - [2.2 Factory as Inner Class](#22-factory-as-inner-class)
-  - [2.3 Factory Polymorphism](#23--factory-polymorphism)
+  - [2.3 Factory Polymorphism](#23-factory-polymorphism)
 - [3. Modules](#3-modules)
   - [3.1 Module Creation](#31-module-creation)
   - [3.2 Module Dependencies](#32-module-dependencies)
@@ -309,19 +308,19 @@ public class SalesModule extends DI.Module {
 }
 ```
 
-<p><img src="./docs/images/module-resolve-order.png#2023-3-14" align="right" width="200" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order, same as services registered with multiple implementations. For example, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
+<p><img src="./docs/images/module-resolve-order.png#2023-3-14" align="right" width="250" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order, same as services registered with multiple implementations. For example, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
 </p>
 
 ```java
 public class Module1 extends DI.Module {
-    public override void imports(DI.ModuleCollection modules) { // declare module dependencies
+    public override void imports(DI.ModuleCollection modules) {
         modules.add('Module5');
         modules.add('Module2');
     }
 }
 
 public class Module2 extends DI.Module {
-    public override void imports(DI.ModuleCollection modules) { // declare module dependencies
+    public override void imports(DI.ModuleCollection modules) {
         modules.add('Module4');
         modules.add('Module3');
     }
