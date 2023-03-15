@@ -100,42 +100,47 @@ IAccountService accountService = (IAccountService) provider.getService(IAccountS
 
 ### 1.1 Service Lifetime
 
-Every service has a lifetime, the library supports three different lifetimes:
+Every service has a lifetime, the library defined three different width and length of lifetimes. Order from wider longer lifetime to narrower shorter lifetime is Singleton > Scoped > Transient.
 
-1. **Transient**: new instances will be created whenever `getService()` is invoked.
-2. **Singleton**: the same instance will be returned whenever `getService()` is invoked, even from different `DI.Module` or `DI.ServiceProvider`.
-3. **Scoped**: the same instance will be returned whenever `getService()` of the same `DI.Module` or `DI.ServiceProvider` is invoked, but different instances will be returned from different `DI.Module` or `DI.ServiceProvider`. Can also be understood as a singleton within a `DI.Module` or `DI.ServiceProvider`, but not across them.
+1. **Singleton**: the same instance will be returned whenever `getService()` is invoked in organization-wide, even from different `DI.Module` or `DI.ServiceProvider`.
+3. **Scoped**: the same instance will be returned only when `getService()` of the same `DI.Module` or `DI.ServiceProvider` is invoked, and different instances will be returned from different modules and providers. Can also be understood as a singleton within a module or provider, but not across them.
+3. **Transient**: new instances will be created whenever `getService()` is invoked.
+
+<img src="./docs/images/lifetime-illustrated.png#2023-3-15" style="max-width:600px" alt="lifetime">
+
+They can be interpreted as the above hierarchy, and together provide flexible configurations of service dependencies. The following code use `DI.ServiceProvider` as scope boundary, instead of `DI.Module`. The only major differences between them is that `DI.Module` can import services from other modules, but still respect their lifetimes.
 
 ```java
 DI.ServiceProvider providerA = DI.services()
-    .addTransient('IAccountService', 'AccountService') // 1. register transient services
-    .addSingleton('IUtility', 'Utility')               // 2. register singleton services
-    .addScoped('ILogger', 'TableLogger')               // 3. register scoped services
+    .addSingleton('IUtility', 'Utility')               // 1. register singleton services
+    .addScoped('ILogger', 'TableLogger')               // 2. register scoped services
+    .addTransient('IAccountService', 'AccountService') // 3. register transient services
     .BuildServiceProvider();
 
 DI.ServiceProvider providerB = DI.services()
-    .addSingleton('IUtility', 'Utility')               // 2. register singleton services
-    .addScoped('ILogger', 'TableLogger')               // 3. register scoped services
+    .addSingleton('IUtility', 'Utility')               // 1. register singleton services
+    .addScoped('ILogger', 'TableLogger')               // 2. register scoped services
+    .addTransient('IAccountService', 'AccountService') // 3. register transient services
     .BuildServiceProvider();
 
-// 1. Transient Lifetime:
-Assert.areNotEqual( // different services are returned from providerA
-    providerA.getService(IAccountService.class),
-    providerA.getService(IAccountService.class));
-
-// 2. Singleton Lifetime:
-Assert.areEqual(  // the same service is returned from providerA and providerB
+// 1. Singleton Lifetime:
+Assert.areEqual(    // the same service is returned from providerA and providerB
     providerA.getService(IUtility.class),
     providerB.getService(IUtility.class));
 
-// 3. Scoped Lifetime:
-Assert.areEqual(  // the same service is returned from providerA
+// 2. Scoped Lifetime:
+Assert.areEqual(    // the same service is returned from providerA
     providerA.getService(ILogger.class),
     providerA.getService(ILogger.class));
 
-Assert.areEqual(  // different services are returned from providerA and providerB
+Assert.areEqual(    // different services are returned from providerA and providerB
     providerA.getService(ILogger.class),
     providerB.getService(ILogger.class));
+
+// 3. Transient Lifetime:
+Assert.areNotEqual( // different services are returned from providerA
+    providerA.getService(IAccountService.class),
+    providerA.getService(IAccountService.class));
 ```
 
 ### 1.2 Register with Concrete Types
