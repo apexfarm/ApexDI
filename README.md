@@ -144,7 +144,12 @@ Assert.areNotEqual( // different services are returned from providerA
 
 Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) can override those registered in lower level (singleton) contexts.
 
-<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime" style="margin-bottom:8px">Figure: Lifetime Hierarchy</p>
+<p align="center">
+<figure>
+    <img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime" style="margin-bottom:8px">
+    <figcaption>Figure: Lifetime Hierarchy</figcaption>
+</figure>
+</p>
 
 ### 1.2 Singleton Lifetime Caveat
 
