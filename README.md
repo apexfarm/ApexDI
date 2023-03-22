@@ -107,6 +107,8 @@ Every service has a lifetime, the library defined three different widths and len
 3. **Scoped**: the same instance will be returned only when `getService()` of the same `DI.Module` or `DI.ServiceProvider` is invoked, and different instances will be returned from different modules and providers. Can also be understood as a singleton within a module or provider, but not across them.
 3. **Transient**: new instances will be created whenever `getService()` is invoked.
 
+The following code use `DI.ServiceProvider` to create service boundaries. [Modules](#3-modules) following the same lifetime mechanism, since they also implement `DI.ServiceProvider`. The benefit of a `DI.Module` is that, it can import services from other dependent modules.
+
 ```java
 DI.ServiceProvider providerA = DI.services()
     .addSingleton('IUtility', 'Utility')               // 1. register singleton services
@@ -140,13 +142,13 @@ Assert.areNotEqual( // different services are returned from providerA
     providerA.getService(IAccountService.class));
 ```
 
-They can also be interpreted as the following hierarchy, and together provide flexible configurations of services. The following code use `DI.ServiceProvider` as scope boundary, the same can be applied to [modules](#3-modules). The only major difference between providers and modules is that `DI.Module` can import services from other dependent modules.
+Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) can override those registered in lower level (singleton) contexts.
 
-<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime" style="margin-bottom:8px">Lifetime Hierarchy</p>
+<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime" style="margin-bottom:8px">Figure: Lifetime Hierarchy</p>
 
 ### 1.2 Singleton Lifetime Caveat
 
-Singleton services are registered in global context at the organization level, once their instances are initialized, they will be cached for future references. So singletons cannot be overrode or replaced at runtime by different providers or modules. This is also the nature of singletons, and the following behavior is expected, it will not be considered as an [issue #1](https://github.com/apexfarm/ApexDI/issues/1).
+Singleton services are registered in global context at the organization level, once their instances are initialized, they will be cached for future references. So singletons cannot be overrode or replaced at runtime by different providers or modules. This is also the nature of singletons, and the following behavior is expected, and will not be considered as an [issue #1](https://github.com/apexfarm/ApexDI/issues/1).
 
 ```java
 DI.ServiceProvider providerA = DI.services()
@@ -168,7 +170,7 @@ Assert.isFalse(anotherUtil instanceof AnotherUtility);
 Assert.areEqual(anotherUtil, util); // same utitliy is returned
 ```
 
-Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level of context above the organization level.
+Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level of context above the organization level. Again, as rule of thumb, services registered in higher level can override those registered in lower level contexts.
 
 ```java
 // providerC registered another IUtility implementation as scoped lifetime
