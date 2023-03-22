@@ -142,7 +142,7 @@ Assert.areNotEqual( // different services are returned from providerA
     providerA.getService(IAccountService.class));
 ```
 
-Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) can override those registered in lower level (singleton) contexts.
+Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) can override those registered in lower level (singleton) contexts. More is explained in the next section.
 
 <p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="Lifetime Hierarchy"></p>
 
@@ -157,7 +157,7 @@ DI.ServiceProvider providerA = DI.services()
 
 // provierA already initialized the IUtility singleton
 IUtility util = (IUtility) providerA.get(IUtility.class);
-Assert.isTrue(util instanceof FirstUtility);
+Assert.isTrue(util instanceof Utility);
 
 // providerB registered another singleton IUtility implementation
 DI.ServiceProvider providerB = DI.services()
