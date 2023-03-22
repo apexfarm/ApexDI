@@ -142,7 +142,7 @@ Assert.areNotEqual( // different services are returned from providerA
     providerA.getService(IAccountService.class));
 ```
 
-Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) can override those registered in lower level (singleton) contexts. More is explained in the next section.
+Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) have higher precedence than those registered in lower level (singleton) contexts. More is explained in the next section.
 
 <p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="Lifetime Hierarchy"></p>
 
@@ -155,7 +155,7 @@ DI.ServiceProvider providerA = DI.services()
     .addSingleton('IUtility', 'Utility')
     .BuildServiceProvider();
 
-// provierA already initialized the IUtility singleton
+// providerA already initialized the IUtility singleton
 IUtility util = (IUtility) providerA.get(IUtility.class);
 Assert.isTrue(util instanceof Utility);
 
@@ -165,12 +165,13 @@ DI.ServiceProvider providerB = DI.services()
     .BuildServiceProvider();
 
 // providerB cannot instanciate IUtility singleton with AnotherUtility class
+// because providerA already resolved an instance of Utility class.
 IUtility anotherUtil = (IUtility) providerB.get(IUtility.class);
 Assert.isFalse(anotherUtil instanceof AnotherUtility);
-Assert.areEqual(anotherUtil, util); // same utitliy is returned
+Assert.areEqual(anotherUtil, util); // the same utitliy instance
 ```
 
-Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level context above the organization level. Again, as rule of thumb, services registered in higher level can override those registered in lower level contexts, please reference the hierarchy diagram in above.
+Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level context above the organization level. Again, as rule of thumb, services registered in higher level have higher precedence than those registered in lower level contexts, please reference the hierarchy diagram in above.
 
 ```java
 // providerC registered another IUtility implementation as scoped lifetime
@@ -178,7 +179,7 @@ DI.ServiceProvider providerC = DI.services()
     .addScoped('IUtility', 'AnotherUtility')
     .BuildServiceProvider();
 
-// providerC can instanciate AnotherUtility class to override the IUtility singleton
+// providerC can instanciate AnotherUtility class which "overrides" the IUtility singleton
 IUtility anotherUtil = (IUtility) providerC.get(IUtility.class);
 Assert.isTrue(anotherUtil instanceof AnotherUtility);
 Assert.areNotEqual(anotherUtil, util);
