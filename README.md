@@ -148,7 +148,7 @@ Lifetimes can also be interpreted as the following hierarchy, and together provi
 
 ### 1.2 Singleton Lifetime Caveat
 
-Singleton services are registered in global context at the organization level, once their instances are initialized, they will be cached for future references. So singletons cannot be overrode or replaced at runtime by different providers or modules. This is also the nature of singletons, and the following behavior is expected, and will not be considered as an [issue #1](https://github.com/apexfarm/ApexDI/issues/1).
+Singleton services are registered in global context at the organization level, once their instances are initialized, they will be cached for future references. So singletons cannot be overrode or replaced at runtime by different providers or modules. This is also the nature of singletons, so the following behavior is expected and will not be considered as an [issue #1](https://github.com/apexfarm/ApexDI/issues/1).
 
 ```java
 DI.ServiceProvider providerA = DI.services()
@@ -170,7 +170,7 @@ Assert.isFalse(anotherUtil instanceof AnotherUtility);
 Assert.areEqual(anotherUtil, util); // same utitliy is returned
 ```
 
-Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level of context above the organization level. Again, as rule of thumb, services registered in higher level can override those registered in lower level contexts.
+Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level context above the organization level. Again, as rule of thumb, services registered in higher level can override those registered in lower level contexts, please reference the hierarchy diagram in above.
 
 ```java
 // providerC registered another IUtility implementation as scoped lifetime
