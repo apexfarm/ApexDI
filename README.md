@@ -60,8 +60,9 @@ public with sharing class AccountController {
 
 - [1. Services](#1-services)
   - [1.1 Service Lifetime](#11-service-lifetime)
-  - [1.2 Register with Concrete Types](#12-register-with-concrete-types)
-  - [1.3 Register with Multiple Implementations](#13-register-with-multiple-implementations)
+  - [1.2 Singleton Lifetime Caveat](#12-singleton-lifetime-caveat)
+  - [1.3 Register with Concrete Types](#13-register-with-concrete-types)
+  - [1.4 Register with Multiple Implementations](#14-register-with-multiple-implementations)
 - [2. Factory](#2-factory)
   - [2.1 Constructor Injection](#21-constructor-injection)
   - [2.2 Factory as Inner Class](#22-factory-as-inner-class)
@@ -85,7 +86,7 @@ public with sharing class AccountController {
 
 ## 1. Services
 
-Here is a simple example about how to register the service class into a DI container, and resolve it. **[Design]**: We use the type name strings during service registration. This is because in apex, each time a transaction reaches a class declaration on the first time, all its static properties are going to be initialized and loaded at that time. If an Apex DI framework registered with hundreds of classes/interfaces with strong types, it will initialize all their static properties, which will harm the performance badly.
+Here is a simple example about how to register the service class into a DI container, and resolve it. **[Design Consideration]**: We use the type name strings during service registration. This is because in apex, each time a transaction reaches a class declaration on the first time, all its static properties are going to be initialized and loaded at that time. If an Apex DI framework registered with hundreds of classes/interfaces with strong types, it will initialize all their static properties, which will harm the performance badly.
 
 ```java
 public interface IAccountService {}
@@ -100,15 +101,11 @@ IAccountService accountService = (IAccountService) provider.getService(IAccountS
 
 ### 1.1 Service Lifetime
 
-Every service has a lifetime, the library defined three different width and length of lifetimes. Order from wider longer lifetime to narrower shorter lifetime is Singleton > Scoped > Transient.
+Every service has a lifetime, the library defined three different widths and lengths of lifetimes. Order from wider longer lifetime to narrower shorter lifetime is Singleton > Scoped > Transient.
 
 1. **Singleton**: the same instance will be returned whenever `getService()` is invoked in organization-wide, even from different `DI.Module` or `DI.ServiceProvider`.
 3. **Scoped**: the same instance will be returned only when `getService()` of the same `DI.Module` or `DI.ServiceProvider` is invoked, and different instances will be returned from different modules and providers. Can also be understood as a singleton within a module or provider, but not across them.
 3. **Transient**: new instances will be created whenever `getService()` is invoked.
-
-<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime"></p>
-
-They can be interpreted as the above hierarchy, and together provide flexible configurations of service dependencies. The following code use `DI.ServiceProvider` as scope boundary, instead of `DI.Module`. The only major differences between them is that `DI.Module` can import services from other modules, but still respect their lifetimes.
 
 ```java
 DI.ServiceProvider providerA = DI.services()
@@ -143,7 +140,49 @@ Assert.areNotEqual( // different services are returned from providerA
     providerA.getService(IAccountService.class));
 ```
 
-### 1.2 Register with Concrete Types
+They can also be interpreted as the following hierarchy, and together provide flexible configurations of services. The following code use `DI.ServiceProvider` as scope boundary, the same can be applied to [modules](#3-modules). The only major difference between providers and modules is that `DI.Module` can import services from other dependent modules.
+
+<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime"></p>
+
+### 1.2 Singleton Lifetime Caveat
+
+Singleton services are registered in global context at the organization level, once their instances are initialized, they will be cached for future references. So singletons cannot be overrode or replaced at runtime by different providers or modules. This is also the nature of singletons, and the following behavior is expected, it will not be considered as an [issue #1](https://github.com/apexfarm/ApexDI/issues/1).
+
+```java
+DI.ServiceProvider providerA = DI.services()
+    .addSingleton('IUtility', 'Utility')
+    .BuildServiceProvider();
+
+// provierA already initialized the IUtility singleton
+IUtility util = (IUtility) providerA.get(IUtility.class);
+Assert.isTrue(util instanceof FirstUtility);
+
+// providerB registered another singleton IUtility implementation
+DI.ServiceProvider providerB = DI.services()
+    .addSingleton('IUtility', 'AnotherUtility')
+    .BuildServiceProvider();
+
+// providerB cannot override IUtility singleton with AnotherUtility class
+IUtility anotherUtil = (IUtility) providerB.get(IUtility.class);
+Assert.isFalse(anotherUtil instanceof AnotherUtility);
+Assert.areEqual(anotherUtil, util);
+```
+
+Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are considered to be registered into a higher level of context above the organization level.
+
+```java
+// providerC registered another IUtility implementation as scoped lifetime
+DI.ServiceProvider providerC = DI.services()
+    .addScoped('IUtility', 'AnotherUtility')
+    .BuildServiceProvider();
+
+// providerC can instanciate AnotherUtility class to override the IUtility singleton
+IUtility anotherUtil = (IUtility) providerC.get(IUtility.class);
+Assert.isTrue(anotherUtil instanceof AnotherUtility);
+Assert.areNotEqual(anotherUtil, util);
+```
+
+### 1.3 Register with Concrete Types
 
 It is generally **NOT** recommended, but services can also be registered against their own implementation types. This will no longer enable us to code against abstractions, which is one of the main reason why we choose a DI framework. However, sometimes it is still **OK** for classes to be registered in this way, such as a `Utility` class.
 
@@ -158,7 +197,7 @@ DI.ServiceProvider provider = DI.services()
 AccountService accountService = (AccountService) provider.getService(AccountService.class);
 ```
 
-### 1.3 Register with Multiple Implementations
+### 1.4 Register with Multiple Implementations
 
 Multiple different service implementations of the same abstraction/interface can be registered in the same DI container. With `getServices(Type serviceType)` API, all implementations can be resolved all together. **Note**: the API name `getServices` ends with plural services.
 
@@ -286,7 +325,7 @@ It is highly recommended to use a `DI.Module` to manage service registrations, s
 
 ### 3.1 Module Creation
 
-A module is defined with a class inherited from `DI.Module`. Override method `void configure(DI.ServiceCollection services)` to register services into it. It can be resolved later with `DI.getModule(Type moduleType)` API. Module will be resolved as singleton, so the same instance is returned by `getModule` for the same module class.
+A module is defined with a class inherited from `DI.Module`. Override method `void configure(DI.ServiceCollection services)` to register services into it. A module can be resolved later with `DI.getModule(Type moduleType)` API, it will be resolved as singleton, so the same instance is returned for the same module class.
 
 ```java
 public class LogModule extends DI.Module {
@@ -375,7 +414,7 @@ When project becomes huge, we can divide modules into different folders, so it g
 
 ### 4.1 Test with Mockup Replacement
 
-There is a controller defined at the top of the page. And we can use it as an example to create the test class `AccountControllerTest`. Controller is special, because it is running under static context, while our DI is under instance context. Here we try to replace the module returned by `DI.getModule(SalesModule.cass)` with a mock module at runtime.
+There is a controller defined at the top of the page. And we can use it as an example to create the following test class `AccountControllerTest`. Controller is special, because it is running under static context, while our DI is under instance context. Here we try to replace the module returned by `DI.getModule(SalesModule.cass)` with a mock module at runtime.
 
 1. Use `DI.addModule` API to replace `SalesModule` with the `MockSalesModule` defined as inner class. **Note**: `DI.addModule` must be called before the first reference of the `AccountController` class.
 1. Extend `SalesModule` with `MockSalesModule`. **Note**: both the `SalesModule` class and its `configure(services)` method need to be declared as `virtual` prior.
