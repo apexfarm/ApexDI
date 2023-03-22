@@ -142,7 +142,7 @@ Assert.areNotEqual( // different services are returned from providerA
 
 They can also be interpreted as the following hierarchy, and together provide flexible configurations of services. The following code use `DI.ServiceProvider` as scope boundary, the same can be applied to [modules](#3-modules). The only major difference between providers and modules is that `DI.Module` can import services from other dependent modules.
 
-<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime"></p>
+<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="lifetime" style="margin-bottom:8px">Lifetime Hierarchy</p>
 
 ### 1.2 Singleton Lifetime Caveat
 
@@ -162,13 +162,13 @@ DI.ServiceProvider providerB = DI.services()
     .addSingleton('IUtility', 'AnotherUtility')
     .BuildServiceProvider();
 
-// providerB cannot override IUtility singleton with AnotherUtility class
+// providerB cannot instanciate IUtility singleton with AnotherUtility class
 IUtility anotherUtil = (IUtility) providerB.get(IUtility.class);
 Assert.isFalse(anotherUtil instanceof AnotherUtility);
-Assert.areEqual(anotherUtil, util);
+Assert.areEqual(anotherUtil, util); // same utitliy is returned
 ```
 
-Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are considered to be registered into a higher level of context above the organization level.
+Once you face this challenge, perhaps your services shouldn't be considered as singletons anymore. Please try to use scoped or transient lifetimes, so the services are registered into a higher level of context above the organization level.
 
 ```java
 // providerC registered another IUtility implementation as scoped lifetime
