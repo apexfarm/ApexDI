@@ -104,10 +104,16 @@ public with sharing class DI {
 
             Module module = (Module) this.provider.getService(moduleType);
             if (module == null) {
-                this.provider.removeService(moduleType);
+                this.removeService(moduleType);
                 this.addFactory(moduleType);
             }
             return (Module) this.provider.getService(moduleType);
+        }
+
+        // only for module registration
+        private void removeService(Type serviceType) {
+            this.provider.callSiteFactory.callSiteCache.remove(serviceType);
+            this.provider.realizedServices.remove(serviceType);
         }
 
         private void addFactory(Type moduleType) {
@@ -447,11 +453,6 @@ public with sharing class DI {
         }
 
         public void onResolve(Type serviceType, IServiceScope scope) {
-        }
-
-        private void removeService(Type serviceType) {
-            this.callSiteFactory.callSiteCache.remove(serviceType);
-            this.realizedServices.remove(serviceType);
         }
 
         private Object getService(Type serviceType, ServiceProviderEngineScope scope) {
