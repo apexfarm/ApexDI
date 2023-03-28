@@ -74,7 +74,7 @@ public with sharing class AccountController {
 - [4. Tests](#4-tests)
   - [4.1 Test with Mockup Replacement](#41-test-with-mockup-replacement)
   - [4.2 Test with a Mockup Library](#42-test-with-a-mockup-library)
-  - [4.3 Test with Service Provider](#43-test-with-service-provider)
+  - [4.3 Test with Ad Hoc Service](#43-test-with-ad-hoc-service)
 - [5. API Reference](#5-api-reference)
   - [5.1 DI Class](#51-di-class)
   - [5.2 DI.ServiceCollection Interface](#52-diservicecollection-interface)
@@ -492,7 +492,10 @@ public class AccountControllerTest {
 
 ### 4.3 Test with Ad Hoc Service
 
-This is not suitable to test static classes as controllers, but will be a convenient way to test particular services on ad hoc basis. The following `AccountService` may depend on `IAccountRepository` to perform the CRUD requests to Salesforce database.  Here we provided a `NullLogger` to silence the logging service during testing. And we can also consider to replace `IAccountRepository` with a mockup repository to silence the actual requests made to Salesforce database, which gives performance boost a lot.
+This is not suitable to test static classes as controllers, but will be a convenient way to test particular services on ad hoc basis. The following `AccountService` depends on both `IAccountRepository` and `ILogger` to function. A simple `DI.ServiceProvider` enable us to do the followings:
+
+1. Provide a `NullLogger` to silence the logging service during testing.
+2. Replace `IAccountRepository` with a mockup repository to silence the actual requests made to Salesforce database, which gives performance boost quite a lot.
 
 ```java
 @isTest
@@ -501,7 +504,7 @@ public class AccountServiceTest {
     static void testGetAccounts() {
         DI.ServiceProvider provider = DI.services()
             .addTransientFactory('IAccountService', 'AccountService.Factory')
-            .addSingleton('IAccountRepository', 'AccountRepository')
+            .addSingleton('IAccountRepository', 'MockupAccountRepository')
             .addSingleton('ILogger', 'AccountServiceTest.NullLogger')
             .BuildServiceProvider();
 
