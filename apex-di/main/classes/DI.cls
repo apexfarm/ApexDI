@@ -171,7 +171,7 @@ public with sharing class DI {
             modules.addImportedModules();
             module.import(modules);
 
-            for (ServiceDescriptor moduleDescriptor : modules.importedModules.getDescriptors()) {
+            for (ServiceDescriptor moduleDescriptor : modules.importedModules.getDescriptors().values()) {
                 Type importedModuleType = Type.forName(moduleDescriptor.serviceName);
                 Type importedNewModuleType = Type.forName(moduleDescriptor.implementationTypeName);
                 if (importedModuleType != importedNewModuleType) {
@@ -189,30 +189,22 @@ public with sharing class DI {
     }
 
     private class RootModule extends Module {
-        @TestVisible
-        private Set<ServiceDescriptor> uniqueDescriptors { get; set; }
-
         private RootModule() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors(), RootModule.class.getName());
-            this.uniqueDescriptors = new Set<ServiceDescriptor>();
         }
 
         protected override void configure(ServiceCollection services) {
         }
 
         private ServiceDescriptor add(ServiceDescriptor descriptor) {
-            System.debug(descriptor);
-            System.debug(this.uniqueDescriptors.contains(descriptor));
-            if (!this.uniqueDescriptors.contains(descriptor)) {
-                this.uniqueDescriptors.add(descriptor);
-                this.services.serviceDescriptors.add(descriptor);
-            }
+            this.services.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return descriptor;
         }
     }
 
     public abstract class Module implements ServiceProvider {
+        @TestVisible
         private ServiceCollectionImpl services { get; set; }
         private ServiceProviderImpl provider { get; set; }
 
@@ -220,15 +212,8 @@ public with sharing class DI {
             return this.provider.getService(serviceType);
         }
 
-        public List<Object> getServices(Type serviceType) {
-            return this.provider.getServices(serviceType);
-        }
-
         public Object getService(String serviceName) {
             return this.provider.getService(serviceName);
-        }
-        public List<Object> getServices(String serviceName) {
-            return this.provider.getServices(serviceName);
         }
 
         protected virtual void import(ModuleCollection modules) {
@@ -282,40 +267,17 @@ public with sharing class DI {
             this.implementationFactoryTypeName = factoryTypeName.toUpperCase();
             this.lifetime = lifetime;
         }
-
-        public Boolean equals(Object obj) {
-            if (this === obj) {
-                return true;
-            }
-
-            ServiceDescriptor that = (ServiceDescriptor) obj;
-
-            return this.lifetime == that.lifetime &&
-                this.serviceName == that.serviceName &&
-                this.implementationTypeName == that.implementationTypeName &&
-                this.implementationFactoryTypeName == that.implementationFactoryTypeName &&
-                this.implementationInstance == that.implementationInstance;
-        }
-
-        // prettier-ignore
-        public Integer hashCode() {
-            Integer hashCode = this.serviceName == null ? 23 : this.serviceName.hashCode();
-            hashCode = (hashCode * 397) ^ (this.implementationTypeName == null ? 23 : this.implementationTypeName.hashCode());
-            hashCode = (hashCode * 397) ^ (this.implementationFactoryTypeName == null ? 23 : this.implementationFactoryTypeName.hashCode());
-            hashCode = (hashCode * 397) ^ (this.implementationInstance == null ? 23 : this.implementationInstance.hashCode());
-            hashCode = (hashCode * 397) ^ (this.lifetime == null ? 23 : this.lifetime.hashCode());
-            return hashCode;
-        }
     }
 
+    @TestVisible
     private virtual class ServiceCollectionImpl implements IServiceCollection {
-        private final List<ServiceDescriptor> serviceDescriptors;
+        private final Map<String, ServiceDescriptor> serviceDescriptors;
 
         {
-            serviceDescriptors = new List<ServiceDescriptor>();
+            serviceDescriptors = new Map<String, ServiceDescriptor>();
         }
 
-        public List<ServiceDescriptor> getDescriptors() {
+        public Map<String, ServiceDescriptor> getDescriptors() {
             return this.serviceDescriptors;
         }
 
@@ -379,13 +341,13 @@ public with sharing class DI {
         }
 
         public ServiceCollection addServices(IServiceCollection services) {
-            this.serviceDescriptors.addAll(services.getDescriptors());
+            this.serviceDescriptors.putAll(services.getDescriptors());
             return this;
         }
 
         private ServiceDescriptor add(String serviceName, String implementationTypeName, ServiceLifetime lifetime) {
             ServiceDescriptor descriptor = new ServiceDescriptor(serviceName, implementationTypeName, lifetime);
-            this.serviceDescriptors.add(descriptor);
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             if (lifetime == ServiceLifetime.SingletonLifeTime) {
                 ROOT_MODULE.add(descriptor);
             }
@@ -395,7 +357,7 @@ public with sharing class DI {
         private ServiceDescriptor addInstance(String serviceName, Object instance, ServiceLifetime lifetime) {
             ServiceDescriptor descriptor = new ServiceDescriptor(serviceName, lifetime);
             descriptor.implementationInstance = instance;
-            this.serviceDescriptors.add(descriptor);
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             if (lifetime == ServiceLifetime.SingletonLifeTime) {
                 ROOT_MODULE.add(descriptor);
             }
@@ -416,7 +378,7 @@ public with sharing class DI {
                 factoryTypeName,
                 lifetime
             );
-            this.serviceDescriptors.add(descriptor);
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             if (lifetime == ServiceLifetime.SingletonLifeTime) {
                 ROOT_MODULE.add(descriptor);
             }
@@ -437,7 +399,7 @@ public with sharing class DI {
         private CallSiteRuntimeResolver callSiteResolver { get; set; }
         private String moduleName { get; set; }
 
-        private ServiceProviderImpl(List<ServiceDescriptor> serviceDescriptors) {
+        private ServiceProviderImpl(Map<String, ServiceDescriptor> serviceDescriptors) {
             this.root = new ServiceProviderEngineScope(this, true);
             this.realizedServices = new Map<String, ServiceRealizationFunc>();
             this.engine = RUNTIME_SERVICE_PROVIDER_ENGINE;
@@ -447,7 +409,7 @@ public with sharing class DI {
             this.callSiteResolver = CALL_SITE_RUNTIME_RESOLVER;
         }
 
-        private ServiceProviderImpl(List<ServiceDescriptor> serviceDescriptors, String moduleName) {
+        private ServiceProviderImpl(Map<String, ServiceDescriptor> serviceDescriptors, String moduleName) {
             this(serviceDescriptors);
             this.moduleName = moduleName;
         }
@@ -462,16 +424,6 @@ public with sharing class DI {
             return this.getService(serviceType.getName(), this.root);
         }
 
-        public List<Object> getServices(Type serviceType) {
-            if (serviceType == null) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getServices(Type serviceType): serviceType cannot be null.'
-                );
-            }
-
-            return this.getServices(serviceType.getName(), this.root);
-        }
-
         public Object getService(String serviceName) {
             if (String.isBlank(serviceName)) {
                 throw new DIIllegalArgumentException(
@@ -481,24 +433,10 @@ public with sharing class DI {
             return this.getService(serviceName, this.root);
         }
 
-        public List<Object> getServices(String serviceName) {
-            if (String.isBlank(serviceName)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getServices(String serviceName): serviceName cannot be blank.'
-                );
-            }
-            return this.getServices(serviceName, this.root);
-        }
-
         public void onCreate(ServiceCallSite callSite) {
         }
 
         public void onResolve(String serviceType, ServiceScope scope) {
-        }
-
-        private List<Object> getServices(String serviceName, ServiceProviderEngineScope scope) {
-            String serviceListName = 'List<' + serviceName + '>';
-            return (List<Object>) this.getService(serviceListName, scope);
         }
 
         private Object getService(String serviceName, ServiceProviderEngineScope scope) {
@@ -553,15 +491,6 @@ public with sharing class DI {
             return this.rootProvider.getService(serviceType.getName(), this);
         }
 
-        public List<Object> getServices(Type serviceType) {
-            if (serviceType == null) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getServices(Type serviceType): serviceType cannot be null.'
-                );
-            }
-            return this.rootProvider.getServices(serviceType.getName(), this);
-        }
-
         public Object getService(String serviceName) {
             if (String.isBlank(serviceName)) {
                 throw new DIIllegalArgumentException(
@@ -569,14 +498,6 @@ public with sharing class DI {
                 );
             }
             return this.rootProvider.getService(serviceName, this);
-        }
-        public List<Object> getServices(String serviceName) {
-            if (String.isBlank(serviceName)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getServices(String serviceName): serviceName cannot be blank.'
-                );
-            }
-            return this.rootProvider.getServices(serviceName, this);
         }
 
         public ServiceScope createScope() {
@@ -691,13 +612,6 @@ public with sharing class DI {
                             .newInstance(callSite.implementationType, factoryCallSite.genericTypes, scope);
                     }
                 }
-                when IEnumerable {
-                    List<Object> services = (List<Object>) callSite.serviceType.newInstance();
-                    for (ServiceCallSite serviceCallSite : ((EnumerableCallSite) callSite).serviceCallSites) {
-                        services.add(this.visitCallSite(serviceCallSite, scope));
-                    }
-                    return services;
-                }
                 when Constructor {
                     return ((ConstructorCallSite) callSite).implementationType.newInstance();
                 }
@@ -730,10 +644,10 @@ public with sharing class DI {
 
     private class CallSiteFactory {
         private final Integer DEFAULT_SLOT = 0;
-        private List<ServiceDescriptor> serviceDescriptors { get; set; }
+        private Map<String, ServiceDescriptor> serviceDescriptors { get; set; }
         private Map<String, ServiceCallSite> callSiteCache { get; set; }
 
-        private CallSiteFactory(List<ServiceDescriptor> serviceDescriptors) {
+        private CallSiteFactory(Map<String, ServiceDescriptor> serviceDescriptors) {
             this.serviceDescriptors = serviceDescriptors;
             callSiteCache = new Map<String, ServiceCallSite>();
         }
@@ -750,95 +664,52 @@ public with sharing class DI {
         }
 
         private ServiceCallSite createCallSite(String serviceName) {
-            List<Type> genericTypes = new List<Type>();
-            Boolean isEnumerable = false;
+            List<String> genericTypes = new List<String>();
 
-            if (serviceName.startsWith('LIST')) {
-                serviceName = serviceName.replace('LIST<', '').replace('>', '');
-                isEnumerable = true;
-            }
-
-            if (serviceName.contains('<')) {
+            if (serviceName.endsWith('>')) {
                 List<String> splits = serviceName.replace('>', '').split('<');
                 serviceName = splits[0];
                 for (String genericName : splits[1].split(',')) {
-                    genericTypes.add(Type.forName(genericName));
-                    // TODO: handle exception
+                    genericTypes.add(genericName);
                 }
             }
 
-            Type serviceType = Type.forName(serviceName);
-            // TODO: handle exception
-
-            if (isEnumerable) {
-                return tryCreateEnumerable(serviceName, genericTypes);
-            } else {
-                return tryCreateExact(serviceName, genericTypes);
-            }
-        }
-
-        private ServiceCallSite tryCreateExact(String serviceName, List<Type> genericTypes) {
-            ServiceCallSite callSite;
-            for (Integer i = this.serviceDescriptors.size(); i > 0; i--) {
-                callSite = tryCreateExact(serviceDescriptors[i - 1], serviceName, genericTypes, this.DEFAULT_SLOT);
-                if (callSite != null) {
-                    break;
-                }
-            }
-            return callSite;
-        }
-
-        private ServiceCallSite tryCreateEnumerable(String serviceName, List<Type> genericTypes) {
-            List<ServiceDescriptor> descriptors = new List<ServiceDescriptor>();
-            for (ServiceDescriptor serviceDescriptor : this.serviceDescriptors) {
-                if (serviceDescriptor.serviceName == serviceName) {
-                    descriptors.add(serviceDescriptor);
-                }
-            }
-
-            List<ServiceCallSite> serviceCallSites = new List<ServiceCallSite>();
-            for (Integer i = descriptors.size(); i > 0; i--) {
-                Integer slot = descriptors.size() - i;
-                ServiceCallSite callSite = tryCreateExact(descriptors[i - 1], serviceName, genericTypes, slot);
-                if (callSite != null) {
-                    serviceCallSites.add(callSite);
-                }
-            }
-
-            Type serviceType = Type.forName(serviceName);
-            return new EnumerableCallSite(serviceType, serviceCallSites);
+            return tryCreateExact(
+                this.serviceDescriptors.get(serviceName),
+                serviceName,
+                genericTypes,
+                this.DEFAULT_SLOT
+            );
         }
 
         private ServiceCallSite tryCreateExact(
             ServiceDescriptor descriptor,
             String serviceName,
-            List<Type> genericTypes,
+            List<String> genericTypes,
             Integer slot
         ) {
-            if (descriptor.serviceName == serviceName) {
-                Type serviceType = Type.forName(serviceName);
-                ServiceCallSite callSite;
-                // TODO: add genericTypes as cache key? And test different generic types
-                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceType, genericTypes, slot);
+            ServiceCallSite callSite;
+
+            if (descriptor != null) {
+                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceName, genericTypes, slot);
                 if (descriptor.implementationInstance != null) {
-                    callSite = new ConstantCallSite(serviceType, descriptor.implementationInstance);
+                    callSite = new ConstantCallSite(serviceName, descriptor.implementationInstance);
                 } else if (descriptor.implementationFactoryTypeName != null) {
                     callSite = new FactoryCallSite(
                         cache,
-                        serviceType,
+                        serviceName,
                         genericTypes,
                         descriptor.implementationTypeName,
                         descriptor.implementationFactoryTypeName
                     );
                 } else if (descriptor.implementationTypeName != null) {
-                    callSite = new ConstructorCallSite(cache, serviceType, descriptor.implementationTypeName);
+                    callSite = new ConstructorCallSite(cache, serviceName, descriptor.implementationTypeName);
                 } else {
                     throw new NoSuchElementException();
                 }
-
-                return callSite;
             }
-            return null;
+
+            return callSite;
         }
     }
 
@@ -846,7 +717,6 @@ public with sharing class DI {
         Factory,
         Constant,
         Constructor,
-        IEnumerable,
         ServiceProvider,
         Transient,
         Singleton,
@@ -861,7 +731,7 @@ public with sharing class DI {
     }
 
     private abstract class ServiceCallSite {
-        protected Type serviceType { get; set; }
+        protected String serviceName { get; set; }
         protected Type implementationType { get; set; }
         protected CallSiteKind kind { get; set; }
         protected ResultCache cache { get; set; }
@@ -872,32 +742,22 @@ public with sharing class DI {
     }
 
     private class ConstructorCallSite extends ServiceCallSite {
-        private ConstructorCallSite(ResultCache cache, type serviceType, String implementationTypeName) {
+        private ConstructorCallSite(ResultCache cache, String serviceName, String implementationTypeName) {
             super(cache);
-            this.serviceType = serviceType;
+            this.serviceName = serviceName;
             this.implementationType = Type.forName(implementationTypeName);
             this.kind = CallSiteKind.Constructor;
-
-            if (!serviceType.isAssignableFrom(this.implementationType)) {
-                throw new DITypeException(
-                    'DI registered service type [' +
-                        this.implementationType +
-                        '] doesn\'t implement [' +
-                        serviceType +
-                        '].'
-                );
-            }
         }
     }
 
     private class FactoryCallSite extends ServiceCallSite {
         private IServiceFactory factory { get; set; }
-        private List<Type> genericTypes { get; set; }
+        private List<String> genericTypes { get; set; }
 
         private FactoryCallSite(
             ResultCache cache,
-            type serviceType,
-            List<Type> genericTypes,
+            String serviceName,
+            List<String> genericTypes,
             String implementationTypeName,
             String factoryTypeName
         ) {
@@ -914,20 +774,9 @@ public with sharing class DI {
                 );
             }
 
-            Type implementationType = Type.forName(implementationTypeName);
-            if (!serviceType.isAssignableFrom(implementationType)) {
-                throw new DITypeException(
-                    'DI registered factory return type [' +
-                        implementationType +
-                        '] doesn\'t implement [' +
-                        serviceType +
-                        '].'
-                );
-            }
-
-            this.serviceType = serviceType;
+            this.serviceName = serviceName;
             this.genericTypes = genericTypes;
-            this.implementationType = implementationType;
+            this.implementationType = Type.forName(implementationTypeName);
             this.factory = (IServiceFactory) factoryType.newInstance();
             this.kind = CallSiteKind.Factory;
         }
@@ -936,9 +785,9 @@ public with sharing class DI {
     private class ConstantCallSite extends ServiceCallSite {
         private Object defaultValue { get; set; }
 
-        private ConstantCallSite(type serviceType, Object defaultValue) {
+        private ConstantCallSite(String serviceName, Object defaultValue) {
             super(RESULT_CACHE_NONE);
-            this.serviceType = serviceType;
+            this.serviceName = serviceName;
             this.defaultValue = defaultValue;
             this.kind = CallSiteKind.Constant;
         }
@@ -947,22 +796,9 @@ public with sharing class DI {
     private class ServiceProviderCallSite extends ServiceCallSite {
         private ServiceProviderCallSite() {
             super(RESULT_CACHE_NONE);
-            this.serviceType = ServiceProvider.class;
+            this.serviceName = ServiceProvider.class.getName().toUpperCase();
             this.implementationType = ServiceProviderImpl.class;
             this.kind = CallSiteKind.ServiceProvider;
-        }
-    }
-
-    private class EnumerableCallSite extends ServiceCallSite {
-        private Type itemType { get; set; }
-        private List<ServiceCallSite> serviceCallSites { get; set; }
-
-        private EnumerableCallSite(Type itemType, List<ServiceCallSite> serviceCallSites) {
-            super(RESULT_CACHE_NONE);
-            this.itemType = itemType;
-            this.serviceType = Type.forName('List<' + itemType.getName() + '>');
-            this.serviceCallSites = serviceCallSites;
-            this.kind = CallSiteKind.IEnumerable;
         }
     }
 
@@ -975,7 +811,7 @@ public with sharing class DI {
             Key = cacheKey;
         }
 
-        private ResultCache(ServiceLifetime lifetime, type serviceType, List<Type> genericTypes, Integer slot) {
+        private ResultCache(ServiceLifetime lifetime, String serviceName, List<String> genericTypes, Integer slot) {
             switch on lifetime {
                 when SingletonLifetime {
                     this.location = CallSiteResultCacheLocation.Root;
@@ -991,17 +827,17 @@ public with sharing class DI {
                 }
             }
 
-            this.key = new ServiceCacheKey(serviceType, genericTypes, slot);
+            this.key = new ServiceCacheKey(serviceName, genericTypes, slot);
         }
     }
 
     private class ServiceCacheKey {
-        private Type serviceType { get; set; }
-        private List<Type> genericTypes { get; set; }
+        private String serviceName { get; set; }
+        private List<String> genericTypes { get; set; }
         private Integer slot { get; set; }
 
-        private ServiceCacheKey(Type serviceType, List<Type> genericTypes, Integer slot) {
-            this.serviceType = serviceType;
+        private ServiceCacheKey(String serviceName, List<String> genericTypes, Integer slot) {
+            this.serviceName = serviceName;
             this.genericTypes = genericTypes;
             this.slot = slot;
         }
@@ -1012,13 +848,13 @@ public with sharing class DI {
             }
 
             ServiceCacheKey that = (ServiceCacheKey) obj;
-            return this.serviceType == that.serviceType &&
+            return this.serviceName == that.serviceName &&
                 this.genericTypes == that.genericTypes &&
                 this.slot == that.slot;
         }
 
         public Integer hashCode() {
-            Integer hashCode = this.serviceType == null ? 23 : this.serviceType.hashCode();
+            Integer hashCode = this.serviceName == null ? 23 : this.serviceName.hashCode();
             hashCode = (hashCode * 397) ^ (this.genericTypes == null ? 23 : this.genericTypes.hashCode());
             hashCode = (hashCode * 397) ^ this.slot;
             return hashCode;
@@ -1052,7 +888,7 @@ public with sharing class DI {
     }
 
     public interface GenericServiceFactory extends IServiceFactory {
-        Object newInstance(Type serviceType, List<Type> genericTypes, ServiceProvider serviceProvider);
+        Object newInstance(Type serviceType, List<String> genericTypes, ServiceProvider serviceProvider);
     }
 
     public interface ServiceCollection {
@@ -1073,15 +909,13 @@ public with sharing class DI {
     }
 
     private interface IServiceCollection extends ServiceCollection {
-        List<ServiceDescriptor> getDescriptors();
+        Map<String, ServiceDescriptor> getDescriptors();
         ServiceCollection addServices(IServiceCollection services);
     }
 
     public interface ServiceProvider {
         Object getService(Type serviceType);
-        List<Object> getServices(Type serviceType);
         Object getService(String serviceName);
-        List<Object> getServices(String serviceName);
     }
 
     public interface ServiceScope {

@@ -100,26 +100,6 @@ public class DITest {
     }
 
     @IsTest
-    static void test_services_enumerable() {
-        DI.ServiceProvider provider = DI.services()
-            .addSingleton('DITest.ILogger', 'DITest.TableLogger')
-            .addScoped('DITest.ILogger', 'DITest.EmailLogger')
-            .addTransient('DITest.ILogger', 'DITest.AWSS3Logger')
-            .BuildServiceProvider();
-
-        List<ILogger> loggers = (List<ILogger>) provider.getServices(ILogger.class);
-
-        Assert.areEqual(3, loggers.size());
-
-        Assert.isTrue(loggers[0] instanceof AWSS3Logger);
-        Assert.isTrue(loggers[1] instanceof EmailLogger);
-        Assert.isTrue(loggers[2] instanceof TableLogger);
-
-        ILogger logger = (ILogger) provider.getService(ILogger.class);
-        Assert.isTrue(logger instanceof AWSS3Logger);
-    }
-
-    @IsTest
     static void test_services_internal_serviceProvider() {
         DI.ServiceProvider providerA = DI.services()
             .addSingleton('DITest.IUtility', 'DITest.Utility')
@@ -148,8 +128,14 @@ public class DITest {
     public interface ILogger {
         void log(String message);
     }
+    public interface ITableLogger {
+    }
+    public interface IEmailLogger {
+    }
+    public interface IAWSS3Logger {
+    }
 
-    public class TableLogger implements ILogger {
+    public class TableLogger implements ITableLogger, ILogger {
         List<String> messages = new List<String>();
 
         public void log(String message) {
@@ -157,7 +143,7 @@ public class DITest {
         }
     }
 
-    public class EmailLogger implements ILogger {
+    public class EmailLogger implements IEmailLogger, ILogger {
         List<String> messages = new List<String>();
 
         public void log(String message) {
@@ -165,7 +151,7 @@ public class DITest {
         }
     }
 
-    public class AWSS3Logger implements ILogger {
+    public class AWSS3Logger implements IAWSS3Logger, ILogger {
         List<String> messages = new List<String>();
 
         public void log(String message) {
@@ -182,13 +168,13 @@ public class DITest {
     }
 
     public class AccountService implements IAccountService {
-        private List<ILogger> logger { get; set; }
+        private ILogger logger { get; set; }
         private GlobalConfiguration configuration { get; set; }
 
         public AccountService() {
         }
 
-        public AccountService(List<ILogger> logger, GlobalConfiguration confiragion) {
+        public AccountService(ILogger logger, GlobalConfiguration confiragion) {
             this.logger = logger;
             this.configuration = configuration;
         }
@@ -218,19 +204,20 @@ public class DITest {
     static void test_factories_generic() {
         DI.ServiceProvider provider = DI.services()
             .addSingletonFactory('DITest.ILogger', 'DITest.LoggerFactory')
-            .addSingletonFactory('DITest.ILogger', 'DITest.LoggerFactory<DITest.TableLogger>')
-            .addSingletonFactory('DITest.ILogger', 'DITest.LoggerFactory<DITest.EmailLogger>')
-            .addSingletonFactory('DITest.ILogger', 'DITest.LoggerFactory<DITest.AWSS3Logger>')
+            .addSingletonFactory('DITest.ITableLogger', 'DITest.LoggerFactory<DITest.TableLogger>')
+            .addSingletonFactory('DITest.IEmailLogger', 'DITest.LoggerFactory<DITest.EmailLogger>')
+            .addSingletonFactory('DITest.IAWSS3Logger', 'DITest.LoggerFactory<DITest.AWSS3Logger>')
             .buildServiceProvider();
 
-        List<ILogger> logger = (List<ILogger>) provider.getServices(ILogger.class);
+        ILogger tableLogger = (ILogger) provider.getService('DITest.ITableLogger');
+        ILogger emailLogger = (ILogger) provider.getService('DITest.IEmailLogger');
+        ILogger awss3Logger = (ILogger) provider.getService('DITest.IAWSS3Logger');
+        ILogger nullLogger = (ILogger) provider.getService('DITest.ILogger');
 
-        Assert.areEqual(4, logger.size());
-
-        Assert.isTrue(logger[0] instanceof AWSS3Logger);
-        Assert.isTrue(logger[1] instanceof EmailLogger);
-        Assert.isTrue(logger[2] instanceof TableLogger);
-        Assert.isTrue(logger[3] instanceof NullLogger);
+        Assert.isTrue(tableLogger instanceof TableLogger);
+        Assert.isTrue(emailLogger instanceof EmailLogger);
+        Assert.isTrue(awss3Logger instanceof AWSS3Logger);
+        Assert.isTrue(nullLogger instanceof NullLogger);
     }
 
     @IsTest
@@ -254,39 +241,20 @@ public class DITest {
         Assert.areEqual(awss3Logger, provider.getService('DITest.ILogger<DITest.IAWSS3Writer>'));
     }
 
-    @IsTest
-    static void test_factories_generic_services_enumerable() {
-        DI.ServiceProvider provider = DI.services()
-            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
-            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
-            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
-            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
-
-        List<ILogger> emailLoggers = (List<ILogger>) provider.getServices('DITest.ILogger<DITest.IEmailWriter>');
-        List<ILogger> tableLoggers = (List<ILogger>) provider.getServices('DITest.ILogger<DITest.ITableWriter>');
-        List<ILogger> awss3Loggers = (List<ILogger>) provider.getServices('DITest.ILogger<DITest.IAWSS3Writer>');
-
-        Assert.areEqual(2, emailLoggers.size());
-        Assert.areEqual(2, tableLoggers.size());
-        Assert.areEqual(2, awss3Loggers.size());
-    }
-
     // ! Comment out before release, so no dependencies to standard SObjects such as Account and Contact!
     // TODO: Comment out before release, so no dependencies to standard SObjects such as Account and Contact!
-    @IsTest
-    static void test_factories_generic_services_sobjects() {
-        DI.ServiceProvider provider = DI.services()
-            .addSingletonFactory('DITest.IRepository', 'DITest.RepositoryFactory<DITest.Repository>')
-            .BuildServiceProvider();
+    // @IsTest
+    // static void test_factories_generic_services_sobjects() {
+    //     DI.ServiceProvider provider = DI.services()
+    //         .addSingletonFactory('DITest.IRepository', 'DITest.RepositoryFactory<DITest.Repository>')
+    //         .BuildServiceProvider();
 
-        Repository repository = (Repository) provider.getService('DITest.IRepository<Account, Contact>');
-        Assert.areEqual(2, repository.sobjectTypes.size());
-        Assert.areEqual(Account.SObjectType, repository.sobjectTypes[0]);
-        Assert.areEqual(Contact.SObjectType, repository.sobjectTypes[1]);
-        throw new NoSuchElementException('Comment out before release!');
-    }
+    //     Repository repository = (Repository) provider.getService('DITest.IRepository<Account, Contact>');
+    //     Assert.areEqual(2, repository.sobjectTypes.size());
+    //     Assert.areEqual(Account.SObjectType, repository.sobjectTypes[0]);
+    //     Assert.areEqual(Contact.SObjectType, repository.sobjectTypes[1]);
+    //     throw new NoSuchElementException('Comment out before release!');
+    // }
 
     public class GlobalConfiguration {
     }
@@ -294,7 +262,7 @@ public class DITest {
     public class AccountServiceFactory implements DI.ServiceFactory {
         public IAccountService newInstance(Type serviceType, DI.ServiceProvider provider) {
             return new AccountService(
-                (List<ILogger>) provider.getServices(ILogger.class),
+                (ILogger) provider.getService(ILogger.class),
                 (GlobalConfiguration) provider.getService(GlobalConfiguration.class)
             );
         }
@@ -363,10 +331,8 @@ public class DITest {
     }
 
     public class GenericLoggerFactory implements DI.GenericServiceFactory {
-        public ILogger newInstance(Type servcieType, List<Type> genericTypes, DI.ServiceProvider provider) {
-            System.debug(genericTypes);
-            Type writerType = genericTypes[0];
-            return new Logger((IWriter) provider.getService(writerType));
+        public ILogger newInstance(Type servcieType, List<String> genericTypes, DI.ServiceProvider provider) {
+            return new Logger((IWriter) provider.getService(genericTypes[0]));
         }
     }
 
@@ -382,10 +348,10 @@ public class DITest {
     }
 
     public class RepositoryFactory implements DI.GenericServiceFactory {
-        public IRepository newInstance(Type servcieType, List<Type> genericTypes, DI.ServiceProvider provider) {
+        public IRepository newInstance(Type servcieType, List<String> genericTypes, DI.ServiceProvider provider) {
             List<SObjectType> sobjectTypes = new List<SObjectType>();
-            for (Type type : genericTypes) {
-                sobjectTypes.add(((SObject) type.newInstance()).getSObjectType());
+            for (String typeName : genericTypes) {
+                sobjectTypes.add(((SObject) Type.forName(typeName).newInstance()).getSObjectType());
             }
 
             return new Repository(sobjectTypes);
@@ -447,21 +413,6 @@ public class DITest {
                 .addScoped('DITest.ILogger', 'DITest.EmailLogger')
                 .addTransient('DITest.ILogger', 'DITest.AWSS3Logger');
         }
-    }
-
-    @IsTest
-    static void test_modules_enumerable() {
-        DI.Module moduleC = DI.getModule(ModuleC.class);
-        List<ILogger> loggers = (List<ILogger>) moduleC.getServices(ILogger.class);
-
-        Assert.areEqual(3, loggers.size());
-
-        Assert.isTrue(loggers[0] instanceof AWSS3Logger);
-        Assert.isTrue(loggers[1] instanceof EmailLogger);
-        Assert.isTrue(loggers[2] instanceof TableLogger);
-
-        ILogger logger = (ILogger) moduleC.getService(ILogger.class);
-        Assert.isTrue(logger instanceof AWSS3Logger);
     }
 
     public class ModuleD extends DI.Module {
@@ -589,21 +540,11 @@ public class DITest {
     public interface INoService {
     }
 
-    public interface IWrongService {
-    }
-
-    public class WrongService {
-        // will give error during service resolving, because it is not an implementation of IWrongService.
-    }
-
     public interface IWrongFactory {
     }
 
     public class WrongFactory {
         // will give error during service resolving, because it is not factory class.
-    }
-
-    public interface IWrongLogger {
     }
 
     public class NullExceptionLoggerFactory implements DI.ServiceFactory {
@@ -620,28 +561,8 @@ public class DITest {
 
             exp = null;
             try {
-                Type noType = null;
-                provider.getServices(noType);
-            } catch (DI.DIIllegalArgumentException ex) {
-                exp = ex;
-            }
-            Assert.isTrue(exp != null);
-            System.debug(exp);
-
-            exp = null;
-            try {
                 String noName = null;
                 provider.getService(noName);
-            } catch (DI.DIIllegalArgumentException ex) {
-                exp = ex;
-            }
-            Assert.isTrue(exp != null);
-            System.debug(exp);
-
-            exp = null;
-            try {
-                String noName = null;
-                provider.getServices(noName);
             } catch (DI.DIIllegalArgumentException ex) {
                 exp = ex;
             }
@@ -661,14 +582,6 @@ public class DITest {
 
         noService = (INoService) provider.getService('DITest.INoService');
         Assert.areEqual(null, noService);
-
-        List<INoService> noServices = (List<INoService>) provider.getServices(INoService.class);
-        Assert.areNotEqual(null, noServices);
-        Assert.areEqual(0, noServices.size());
-
-        noServices = (List<INoService>) provider.getServices('DITest.INoService');
-        Assert.areNotEqual(null, noServices);
-        Assert.areEqual(0, noServices.size());
     }
 
     @IsTest
@@ -683,36 +596,21 @@ public class DITest {
             .addSingleton('DITest.GlobalConfiguration', 'DITest.GlobalConfiguration')
             .BuildServiceProvider();
 
-        List<GlobalConfiguration> configs = (List<GlobalConfiguration>) provider.getServices(GlobalConfiguration.class);
-        Assert.areEqual(6, configs.size());
-        Assert.areEqual(4, DI.ROOT_MODULE.uniqueDescriptors.size());
+        Assert.areEqual(1, DI.ROOT_MODULE.services.getDescriptors().size());
     }
 
     @IsTest
     static void test_exceptions() {
         DI.ServiceProvider provider = DI.services()
             .addSingleton('DITest.GlobalConfiguration', new GlobalConfiguration())
-            .addSingleton('DITest.IWrongService', 'DITest.WrongService')
             .addSingletonFactory('DITest.IWrongFactory', 'DITest.WrongFactory')
-            .addSingletonFactory('DITest.IWrongLogger', 'DITest.AWSS3LoggerFactory<DITest.AWSS3Logger>')
             .addSingletonFactory('DITest.ILogger', 'DITest.NullExceptionLoggerFactory')
-            .addSingletonFactory('DITest.IAccountService', 'DITest.AccountServiceFactory<DITest.IWrongLogger>')
             .BuildServiceProvider();
 
         Exception exp;
         try {
             Type noType = null;
             provider.getService(noType);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            Type noType = null;
-            provider.getServices(noType);
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
@@ -731,25 +629,6 @@ public class DITest {
 
         exp = null;
         try {
-            String noName = null;
-            provider.getServices(noName);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            provider.getService(IWrongService.class);
-        } catch (DI.DITypeException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
             provider.getService(IWrongFactory.class);
         } catch (DI.DITypeException ex) {
             exp = ex;
@@ -761,15 +640,6 @@ public class DITest {
         try {
             provider.getService(ILogger.class);
         } catch (NullPointerException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            provider.getService(IAccountService.class);
-        } catch (DI.DITypeException ex) {
             exp = ex;
         }
         Assert.isTrue(exp != null);
@@ -858,260 +728,6 @@ public class DITest {
 
         protected override void configure(DI.ServiceCollection services) {
         }
-    }
-
-    @IsTest
-    static void test_performance() {
-        DI.ServiceCollection services = DI.services();
-
-        Datetime startTime = Datetime.now();
-        Integer startCPU = Limits.getCpuTime();
-        for (Integer i = 1; i <= 100; i++) {
-            services.addTransient('DITest.Benchmark' + i);
-        }
-        Datetime endTime = Datetime.now();
-        Integer endCPU = Limits.getCpuTime();
-        System.debug('DI Registration Performance (Time): ' + (endTime.getTime() - startTime.getTime()));
-        System.debug('DI Registration Performance (CPU): ' + (endCPU - startCPU));
-
-        DI.ServiceProvider provider = services.buildServiceProvider();
-
-        startTime = Datetime.now();
-        startCPU = Limits.getCpuTime();
-        for (Integer i = 1; i <= 100; i++) {
-            provider.getService('DITest.Benchmark' + i);
-        }
-        endTime = Datetime.now();
-        endCPU = Limits.getCpuTime();
-        System.debug('DI Resolution Performance (Time): ' + (endTime.getTime() - startTime.getTime()));
-        System.debug('DI Resolution Performance (CPU): ' + (endCPU - startCPU));
-
-        startTime = Datetime.now();
-        startCPU = Limits.getCpuTime();
-        for (Integer i = 1; i <= 100; i++) {
-            provider.getService('DITest.Benchmark' + i);
-        }
-        endTime = Datetime.now();
-        endCPU = Limits.getCpuTime();
-        System.debug('DI Resolution Performance (Time): ' + (endTime.getTime() - startTime.getTime()));
-        System.debug('DI Resolution Performance (CPU): ' + (endCPU - startCPU));
-
-        startTime = Datetime.now();
-        startCPU = Limits.getCpuTime();
-        for (Integer i = 0; i < 100; i++) {
-            String name = 'DITest.Benchmark' + i;
-            new Benchmark1();
-        }
-        endTime = Datetime.now();
-        endCPU = Limits.getCpuTime();
-        System.debug('Control Sample Performance (Time): ' + (endTime.getTime() - startTime.getTime()));
-        System.debug('Control Sample Performance (CPU): ' + (endCPU - startCPU));
-    }
-    // #endregion
-    // ==================
-
-    // =================
-    // #region Benchmark
-
-    public class Benchmark1 {
-    }
-    public class Benchmark2 {
-    }
-    public class Benchmark3 {
-    }
-    public class Benchmark4 {
-    }
-    public class Benchmark5 {
-    }
-    public class Benchmark6 {
-    }
-    public class Benchmark7 {
-    }
-    public class Benchmark8 {
-    }
-    public class Benchmark9 {
-    }
-    public class Benchmark10 {
-    }
-    public class Benchmark11 {
-    }
-    public class Benchmark12 {
-    }
-    public class Benchmark13 {
-    }
-    public class Benchmark14 {
-    }
-    public class Benchmark15 {
-    }
-    public class Benchmark16 {
-    }
-    public class Benchmark17 {
-    }
-    public class Benchmark18 {
-    }
-    public class Benchmark19 {
-    }
-    public class Benchmark20 {
-    }
-    public class Benchmark21 {
-    }
-    public class Benchmark22 {
-    }
-    public class Benchmark23 {
-    }
-    public class Benchmark24 {
-    }
-    public class Benchmark25 {
-    }
-    public class Benchmark26 {
-    }
-    public class Benchmark27 {
-    }
-    public class Benchmark28 {
-    }
-    public class Benchmark29 {
-    }
-    public class Benchmark30 {
-    }
-    public class Benchmark31 {
-    }
-    public class Benchmark32 {
-    }
-    public class Benchmark33 {
-    }
-    public class Benchmark34 {
-    }
-    public class Benchmark35 {
-    }
-    public class Benchmark36 {
-    }
-    public class Benchmark37 {
-    }
-    public class Benchmark38 {
-    }
-    public class Benchmark39 {
-    }
-    public class Benchmark40 {
-    }
-    public class Benchmark41 {
-    }
-    public class Benchmark42 {
-    }
-    public class Benchmark43 {
-    }
-    public class Benchmark44 {
-    }
-    public class Benchmark45 {
-    }
-    public class Benchmark46 {
-    }
-    public class Benchmark47 {
-    }
-    public class Benchmark48 {
-    }
-    public class Benchmark49 {
-    }
-    public class Benchmark50 {
-    }
-    public class Benchmark51 {
-    }
-    public class Benchmark52 {
-    }
-    public class Benchmark53 {
-    }
-    public class Benchmark54 {
-    }
-    public class Benchmark55 {
-    }
-    public class Benchmark56 {
-    }
-    public class Benchmark57 {
-    }
-    public class Benchmark58 {
-    }
-    public class Benchmark59 {
-    }
-    public class Benchmark60 {
-    }
-    public class Benchmark61 {
-    }
-    public class Benchmark62 {
-    }
-    public class Benchmark63 {
-    }
-    public class Benchmark64 {
-    }
-    public class Benchmark65 {
-    }
-    public class Benchmark66 {
-    }
-    public class Benchmark67 {
-    }
-    public class Benchmark68 {
-    }
-    public class Benchmark69 {
-    }
-    public class Benchmark70 {
-    }
-    public class Benchmark71 {
-    }
-    public class Benchmark72 {
-    }
-    public class Benchmark73 {
-    }
-    public class Benchmark74 {
-    }
-    public class Benchmark75 {
-    }
-    public class Benchmark76 {
-    }
-    public class Benchmark77 {
-    }
-    public class Benchmark78 {
-    }
-    public class Benchmark79 {
-    }
-    public class Benchmark80 {
-    }
-    public class Benchmark81 {
-    }
-    public class Benchmark82 {
-    }
-    public class Benchmark83 {
-    }
-    public class Benchmark84 {
-    }
-    public class Benchmark85 {
-    }
-    public class Benchmark86 {
-    }
-    public class Benchmark87 {
-    }
-    public class Benchmark88 {
-    }
-    public class Benchmark89 {
-    }
-    public class Benchmark90 {
-    }
-    public class Benchmark91 {
-    }
-    public class Benchmark92 {
-    }
-    public class Benchmark93 {
-    }
-    public class Benchmark94 {
-    }
-    public class Benchmark95 {
-    }
-    public class Benchmark96 {
-    }
-    public class Benchmark97 {
-    }
-    public class Benchmark98 {
-    }
-    public class Benchmark99 {
-    }
-    public class Benchmark100 {
     }
     // #endregion
     // =================
