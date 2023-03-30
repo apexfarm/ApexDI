@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-2.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-%3E90%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-2.2-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-%3E90%25-brightgreen.svg)
 
 A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework ported from .Net Core. It can help:
 
@@ -11,17 +11,19 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
    - Create boundaries to avoid loading of unused services into current module.
    - Create dependencies to increase the reusability of services in other modules.
 
-| Environment           | Installation Link                                                                                                                                         | Version |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CffhAAC"><img src="docs/images/deploy-button.png"></a> | ver 2.1 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CffhAAC"><img src="docs/images/deploy-button.png"></a>  | ver 2.1 |
+| Environment           | Installation Link                                            | Version |
+| --------------------- | ------------------------------------------------------------ | ------- |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CffhAAC"><img src="docs/images/deploy-button.png"></a> | ver 2.2 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CffhAAC"><img src="docs/images/deploy-button.png"></a> | ver 2.2 |
 
 ---
 
-### **v2.1 Release Notes**
+### **v2.x Release Notes**
 
-- Add scoped lifetime ([jump to section](#11-service-lifetime))
-- Support generic factory ([jump to section](#23-factory-polymorphism))
+- **v2.1**: Add scoped lifetime ([jump to section](#11-service-lifetime)).
+- **v2.1**: Support generic factory ([jump to section](#23-factory-polymorphism)).
+- **v2.2**: Support generic services ([jump to section](#24-generic-service)).
+- **v2.2**: Provide [Performance Benchmark](#performance-benchmark).
 
 ---
 
@@ -50,6 +52,26 @@ public with sharing class AccountController {
 }
 ```
 
+### Performance Benchmark
+
+As you can see the performance of Apex DI service resolution process is very close to service creation with `new` operator. However the registration process will make the library ~5x slower than just `new Something()`. Performance considerations:
+
+1. Usually once a service type is registered, it will be reused to create many instances, especially for use with transient lifetime. So times needed to do service registration should be far more less than the times to do service resolution.
+2. For a project with 1K classes, it is still acceptable to register all of them together into the same DI container. But would generally recommend to divide them into modules ([3. Modules](#3-modules)), so majority services unused by current transaction are unnecessarily to be loaded.
+
+|               | 1. Register 100 Service Types | 2. Resolve 100 Services | 3. Resolve 100 Services Again | 4. New 100 Services |
+| ------------- | ----------------------------- | ----------------------- | ----------------------------- | ------------------- |
+| **Time (ms)** | ~7                            | ~452                    | ~26                           | ~2                  |
+| **CPU Time**  | ~6                            | ~289                    | ~25                           | ~1                  |
+
+Testing condition:
+
+1. **Register 100 Service Types**: There are 100 different service types registered as transient lifetime.
+2. **Resolve 100 Services**: Resolve 100 service instances for each service type. The slowness has nothing to do with lifetime such as `transient` or `singleton`. But caused by the lookup for the registered service description for the first-time.
+3. **Resolve 100 Services Again**: Resolve 100 service instances for each service type again.
+
+
+
 ### Online Articles
 
 - [Salesforce Dependency Injection with Apex DI](https://medium.com/@jeff.jianfeng.jin/salesforce-project-with-apex-dependency-injection-a3d0e369be25) (medium link)
@@ -67,6 +89,7 @@ public with sharing class AccountController {
   - [2.1 Constructor Injection](#21-constructor-injection)
   - [2.2 Factory as Inner Class](#22-factory-as-inner-class)
   - [2.3 Generic Factory](#23-generic-factory)
+  - [2.4 Generic Service](#24-generic-service)
 - [3. Modules](#3-modules)
   - [3.1 Module Creation](#31-module-creation)
   - [3.2 Module Dependencies](#32-module-dependencies)
@@ -132,7 +155,7 @@ Assert.areEqual(    // the same service is returned from providerA
     providerA.getService(ILogger.class),
     providerA.getService(ILogger.class));
 
-Assert.areEqual(    // different services are returned from providerA and providerB
+Assert.areNotEqual( // different services are returned from providerA and providerB
     providerA.getService(ILogger.class),
     providerB.getService(ILogger.class));
 
@@ -156,7 +179,7 @@ DI.ServiceProvider providerA = DI.services()
     .BuildServiceProvider();
 
 // providerA already initialized the IUtility singleton
-IUtility util = (IUtility) providerA.get(IUtility.class);
+IUtility util = (IUtility) providerA.getService(IUtility.class);
 Assert.isTrue(util instanceof Utility);
 
 // providerB registered another singleton IUtility implementation
@@ -166,7 +189,7 @@ DI.ServiceProvider providerB = DI.services()
 
 // providerB cannot instanciate IUtility singleton with AnotherUtility class
 // because providerA already resolved an instance of Utility class.
-IUtility anotherUtil = (IUtility) providerB.get(IUtility.class);
+IUtility anotherUtil = (IUtility) providerB.getService(IUtility.class);
 Assert.isFalse(anotherUtil instanceof AnotherUtility);
 Assert.areEqual(anotherUtil, util); // the same utitliy instance
 ```
@@ -180,21 +203,21 @@ DI.ServiceProvider providerC = DI.services()
     .BuildServiceProvider();
 
 // providerC can instanciate AnotherUtility class which "overrides" the IUtility singleton
-IUtility anotherUtil = (IUtility) providerC.get(IUtility.class);
+IUtility anotherUtil = (IUtility) providerC.getService(IUtility.class);
 Assert.isTrue(anotherUtil instanceof AnotherUtility);
 Assert.areNotEqual(anotherUtil, util);
 ```
 
 ### 1.3 Register with Concrete Types
 
-It is generally **NOT** recommended, but services can also be registered against their own implementation types. This will no longer enable us to code against abstractions, which is one of the main reason why we choose a DI framework. However, sometimes it is still **OK** for classes to be registered in this way, such as a `FormatUtility` class.
+It is generally **NOT** recommended, but services can also be registered against their own implementation types. This will no longer enable us to code against abstractions, which is one of the main reason why we choose a DI framework. However, sometimes it is still **OK** for classes to be registered in this way, such as a `Utility` class. (Here `Utility` is not a good class name, by looking at the name we wouldn't know what to do with it, perhaps `Formatter` utility is more obvious.)
 
 ```java
 DI.ServiceProvider provider = DI.services()
     .addTransient('AccountService')
     .addTransient('AccountService', 'AccountService') // equivalent to above
-    .addSingleton('FormatUtility')
-    .addSingleton('FormatUtility', 'FormatUtility')   // equivalent to above
+    .addSingleton('Utility')
+    .addSingleton('Utility', 'Utility')   // equivalent to above
     .BuildServiceProvider();
 
 AccountService accountService = (AccountService) provider.getService(AccountService.class);
@@ -202,7 +225,7 @@ AccountService accountService = (AccountService) provider.getService(AccountServ
 
 ### 1.4 Register with Multiple Implementations
 
-Multiple service implementations of the same abstraction/interface can be registered in the same DI container. With `getServices(Type serviceType)` API, all implementations can be resolved together. **Note**: the API name `getServices` ends with plural services.
+Multiple service implementations of the same abstraction/interface can be registered in the same DI container. With `getServices(Type serviceType)` API, all implementations can be resolved together. This can be useful when need to do broadcasting to multiple services.  **Note**: the API name `getServices` ends with plural services.
 
 ```java
 public interface ILogger { void error(); void warn(); }
@@ -248,7 +271,7 @@ public class AccountServiceFactory implements DI.ServiceFactory {
 // 2. Factory Registrition
 DI.ServiceProvider provider = DI.services()
     .addTransientFactory('IAccountService', 'AccountServiceFactory')
-    .addSingleton('ILogger', 'AWSS3Logger')
+    .addSingletonFactory('ILogger', 'AWSS3LoggerFactory')
     .BuildServiceProvider();
 
 IAccountService accountService = (IAccountService) provider.getService(IAccountService.class);
@@ -300,11 +323,11 @@ DI.ServiceProvider provider = DI.services()
 
 ### 2.3 Generic Factory
 
-When register with factory, supply a generic factory as `FactoryClass<ImplementaionClass>`, then the `ImplementaionClass` will be passed into the `newInstance()` method to help client decide which instance to return at runtime.
+Generic factory enables reusing the same factory to create a family of similar services. When register with factory, just supply a "generic" factory as `FactoryClass<ImplementaionClass>`, then the `ImplementaionClass` will be passed into the `newInstance()` method to help client decide which instance to return at runtime.
 
 ```java
 public class LoggerFactory implements DI.ServiceFactory {
-    public IAccountService newInstance(Type servcieType, DI.ServiceProvider provider) {
+    public ILogger newInstance(Type servcieType, DI.ServiceProvider provider) {
         if (servcieType == TableLogger.class) {
             return new TableLogger();
         } else if (servcieType == EmailLogger.class) {
@@ -317,10 +340,50 @@ public class LoggerFactory implements DI.ServiceFactory {
 }
 
 DI.ServiceProvider provider = DI.services()
-    .addSingletonFactory('ILogger', 'LoggerFactory<EmailLogger>') // "generic" factory
-    .addSingletonFactory('ILogger', 'LoggerFactory<TableLogger>') // "generic" factory
-    .addSingletonFactory('ILogger', 'LoggerFactory<AWSS3Logger>') // "generic" factory
+    .addSingletonFactory('IEmailLogger', 'LoggerFactory<EmailLogger>') // "generic" factory
+    .addSingletonFactory('ITableLogger', 'LoggerFactory<TableLogger>') // "generic" factory
+    .addSingletonFactory('IAWSS3Logger', 'LoggerFactory<AWSS3Logger>') // "generic" factory
     .BuildServiceProvider();
+
+ILogger emailLogger = (ILogger) provider.getService('IEmailLogger');
+ILogger tableLogger = (ILogger) provider.getService('ITableLogger');
+ILogger awss3Logger = (ILogger) provider.getService('IAWSS3Logger');
+```
+
+### 2.4 Generic Service
+
+Generic service enables reusing the same service template to create a family of services adapt to different scenarios. Similarly just supply generic types when resolve services to allow the `DI.GenericServiceFactory` to create instances according to different generic types.
+
+```java
+public class EmailWriter implements IEmailWriter, IWriter { ... }
+public class TableWriter implements ITableWriter, IWriter { ... }
+public class AWSS3Writer implements IAWSS3Writer, IWriter { ... }
+
+public class Logger implements ILogger {
+    private IWriter writer { get; set; }
+    public Logger(IWriter writer) { this.writer = writer; }
+    public void log(String message) {
+        this.writer.write(message);
+    }
+}
+
+public class LoggerFactory implements DI.GenericServiceFactory { // declare generic service factory
+    public ILogger newInstance(Type servcieType, List<Type> genericTypes, DI.ServiceProvider provider) {
+        Type writerType = genericTypes[0];
+	    return new Logger((IWriter) provider.getService(writerType));
+    }
+}
+
+DI.ServiceProvider provider = DI.services()
+    .addSingleton('IEmailWriter', 'EmailWriter')
+    .addSingleton('ITableWriter', 'TableWriter')
+    .addSingleton('IAWSS3Writer', 'AWSS3Writer')
+    .addSingletonFactory('ILogger', 'LoggerFactory<Logger>')
+    .BuildServiceProvider();
+
+ILogger emailLogger = (ILogger) provider.getService('ILogger<IEmailWriter>'); // "generic" service
+ILogger tableLogger = (ILogger) provider.getService('ILogger<ITableWriter>'); // "generic" service
+ILogger awss3Logger = (ILogger) provider.getService('ILogger<IAWSS3Writer>'); // "generic" service
 ```
 
 ## 3. Modules
@@ -330,7 +393,7 @@ It is highly recommended to use a `DI.Module` to manage service registrations, s
 - Create boundaries to reduce loading of unused services into current module.
 - Create dependencies to increase the reusability of services in other modules.
 
-### 3.1 Module Creation
+### 	3.1 Module Creation
 
 A module can be defined with a class inherited from `DI.Module`. Override method `void configure(DI.ServiceCollection services)` to register services into it. A module can be resolved as a singleton with `DI.getModule(Type moduleType)` API, so the same instance is always returned for the same module class.
 
@@ -395,7 +458,7 @@ public class Module4 extends DI.Module {
 
 // TableLogger is resovled because module 2 is registered after 4
 DI.Module module = DI.getModule(Module1.class);
-ILogger logger = module.getService(ILogger.class);
+ILogger logger = (ILogger) module.getService(ILogger.class);
 Assert.isTrue(logger instanceof TableLogger);
 ```
 
@@ -556,21 +619,22 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 
 Use this interface to register services into the container.
 
-| Methods                                                                                    | Description                                                                                             |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `DI.ServiceCollection addTransient(String serviceTypeName)`                                | Register a transient type against its own type.                                                         |
-| `DI.ServiceCollection addTransient(String serviceTypeName, Object instance)`               | Register a transient type against an instance of its own type or descendent types, i.e. a mock service. |
-| `DI.ServiceCollection addTransient(String serviceTypeName, String implementationTypeName)` | Register a transient type against its descendent types.                                                 |
-| `DI.ServiceCollection addTransientFactory(String serviceTypeName, String factoryTypeName)` | Register a transient type against its factory type.                                                     |
-| `DI.ServiceCollection addScoped(String serviceTypeName)`                                   | Register a scoped type against its own type.                                                            |
-| `DI.ServiceCollection addScoped(String serviceTypeName, Object instance)`                  | Register a scoped type against an instance of its own type or descendent types, i.e. a mock service.    |
-| `DI.ServiceCollection addScoped(String serviceTypeName, String implementationTypeName)`    | Register a scoped type against its descendent types.                                                    |
-| `DI.ServiceCollection addScopedFactory(String serviceTypeName, String factoryTypeName)`    | Register a scoped type against its factory type.                                                        |
-| `DI.ServiceCollection addSingleton(String serviceTypeName)`                                | Register a singleton type against its own type.                                                         |
-| `DI.ServiceCollection addSingleton(String serviceTypeName, Object instance)`               | Register a singleton type against an instance of its own type or descendent types, i.e. a mock service. |
-| `DI.ServiceCollection addSingleton(String serviceTypeName, String implementationTypeName)` | Register a singleton type against its descendent types.                                                 |
-| `DI.ServiceCollection addSingletonFactory(String serviceTypeName, String factoryTypeName)` | Register a singleton type against its factory type.                                                     |
-| `DI.ServiceProvider buildServiceProvider()`                                                | Create `DI.ServiceProvider` with services registered into the container.                                |
+| Methods                                                      | Description                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `DI.ServiceProvider buildServiceProvider()`                  | Create `DI.ServiceProvider` with services registered into the container. |
+| **Transient**                                                |                                                              |
+| `DI.ServiceCollection addTransient(String serviceTypeName)`  | Register a transient type against its own type.              |
+| `DI.ServiceCollection addTransient(String serviceTypeName, String implementationTypeName)` | Register a transient type against its descendent types.      |
+| `DI.ServiceCollection addTransientFactory(String serviceTypeName, String factoryTypeName)` | Register a transient type against its factory type.          |
+| **Scoped**                                                   |                                                              |
+| `DI.ServiceCollection addScoped(String serviceTypeName)`     | Register a scoped type against its own type.                 |
+| `DI.ServiceCollection addScoped(String serviceTypeName, String implementationTypeName)` | Register a scoped type against its descendent types.         |
+| `DI.ServiceCollection addScopedFactory(String serviceTypeName, String factoryTypeName)` | Register a scoped type against its factory type.             |
+| **Singleton**                                                |                                                              |
+| `DI.ServiceCollection addSingleton(String serviceTypeName)`  | Register a singleton type against its own type.              |
+| `DI.ServiceCollection addSingleton(String serviceTypeName, Object instance)` | Register a singleton type against an instance of its own type or descendent types, i.e. a mock service. |
+| `DI.ServiceCollection addSingleton(String serviceTypeName, String implementationTypeName)` | Register a singleton type against its descendent types.      |
+| `DI.ServiceCollection addSingletonFactory(String serviceTypeName, String factoryTypeName)` | Register a singleton type against its factory type.          |
 
 ### 5.3 DI.ServiceProvider Interface
 

@@ -21,18 +21,19 @@ public with sharing class DI {
     private static final String DEFAULT_MODULE = 'Default';
     private static final ResultCache RESULT_CACHE_NONE = new ResultCache(
         CallSiteResultCacheLocation.None,
-        new ServiceCacheKey(null, 0)
+        new ServiceCacheKey(null, null, 0)
     );
-    private static final CallSiteRuntimeResolver CALL_SITE_RUNTIME_RESOLVER; // singleton
-    private static final RuntimeServiceProviderEngine RUNTIME_SERVICE_PROVIDER_ENGINE = new RuntimeServiceProviderEngine(); // singleton
+    private static final CallSiteRuntimeResolver CALL_SITE_RUNTIME_RESOLVER;
+    private static final RuntimeServiceProviderEngine RUNTIME_SERVICE_PROVIDER_ENGINE = new RuntimeServiceProviderEngine();
 
     private static final ModuleCollectionImpl GLOBAL_MODULES = new ModuleCollectionImpl();
-    private static final GlobalModule GLOBAL_MODULE;
+    @TestVisible
+    private static final RootModule ROOT_MODULE;
 
     static {
-        GLOBAL_MODULE = new GlobalModule();
-        GLOBAL_MODULES.services.addScoped(GlobalModule.class.getName(), GLOBAL_MODULE);
-        CALL_SITE_RUNTIME_RESOLVER = new CallSiteRuntimeResolver(GLOBAL_MODULE.provider.root);
+        ROOT_MODULE = new RootModule();
+        GLOBAL_MODULES.services.addScoped(RootModule.class.getName(), ROOT_MODULE);
+        CALL_SITE_RUNTIME_RESOLVER = new CallSiteRuntimeResolver(ROOT_MODULE.provider.root);
     }
 
     public static void addModule(String moduleTypeName, String newModuleTypeName) {
@@ -74,16 +75,16 @@ public with sharing class DI {
 
     private class ModuleCollectionImpl extends Module implements ModuleCollection {
         private Map<Type, Type> moduleReplacements;
-        private List<PrivateServiceCollection> modules;
+        private List<IServiceCollection> modules;
 
         private ModuleCollectionImpl() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors(), ModuleCollection.class.getName());
             this.moduleReplacements = new Map<Type, Type>();
-            this.modules = new List<PrivateServiceCollection>();
+            this.modules = new List<IServiceCollection>();
         }
 
-        private PrivateServiceCollection importedModules {
+        private IServiceCollection importedModules {
             get {
                 return this.modules[this.modules.size() - 1];
             }
@@ -93,7 +94,7 @@ public with sharing class DI {
             this.modules.add(new ServiceCollectionImpl());
         }
 
-        private PrivateServiceCollection removeImportedModules() {
+        private IServiceCollection removeImportedModules() {
             return this.modules.remove(this.modules.size() - 1);
         }
 
@@ -112,8 +113,9 @@ public with sharing class DI {
 
         // only for module registration
         private void removeService(Type serviceType) {
-            this.provider.callSiteFactory.callSiteCache.remove(serviceType);
-            this.provider.realizedServices.remove(serviceType);
+            String serviceName = serviceType.getName().toUpperCase();
+            this.provider.callSiteFactory.callSiteCache.remove(serviceName);
+            this.provider.realizedServices.remove(serviceName);
         }
 
         private void addFactory(Type moduleType) {
@@ -186,12 +188,13 @@ public with sharing class DI {
         }
     }
 
-    public class GlobalModule extends Module {
+    private class RootModule extends Module {
+        @TestVisible
         private Set<ServiceDescriptor> uniqueDescriptors { get; set; }
 
-        private GlobalModule() {
+        private RootModule() {
             this.services = new ServiceCollectionImpl();
-            this.provider = new ServiceProviderImpl(this.services.getDescriptors(), GlobalModule.class.getName());
+            this.provider = new ServiceProviderImpl(this.services.getDescriptors(), RootModule.class.getName());
             this.uniqueDescriptors = new Set<ServiceDescriptor>();
         }
 
@@ -199,8 +202,9 @@ public with sharing class DI {
         }
 
         private ServiceDescriptor add(ServiceDescriptor descriptor) {
+            System.debug(descriptor);
+            System.debug(this.uniqueDescriptors.contains(descriptor));
             if (!this.uniqueDescriptors.contains(descriptor)) {
-                System.debug(descriptor);
                 this.uniqueDescriptors.add(descriptor);
                 this.services.serviceDescriptors.add(descriptor);
             }
@@ -218,6 +222,13 @@ public with sharing class DI {
 
         public List<Object> getServices(Type serviceType) {
             return this.provider.getServices(serviceType);
+        }
+
+        public Object getService(String serviceName) {
+            return this.provider.getService(serviceName);
+        }
+        public List<Object> getServices(String serviceName) {
+            return this.provider.getServices(serviceName);
         }
 
         protected virtual void import(ModuleCollection modules) {
@@ -240,23 +251,26 @@ public with sharing class DI {
 
     @TestVisible
     private class ServiceDescriptor {
-        private ServiceLifetime lifetime { get; private set; }
         private String serviceName { get; private set; }
         private String implementationTypeName { get; private set; }
         private String implementationFactoryTypeName { get; private set; }
         private Object implementationInstance { get; private set; }
+        private ServiceLifetime lifetime { get; private set; }
 
+        @TestVisible
         private ServiceDescriptor(String serviceName, String implementationTypeName, ServiceLifetime lifetime) {
             this.serviceName = serviceName.toUpperCase();
             this.implementationTypeName = implementationTypeName.toUpperCase();
             this.lifetime = lifetime;
         }
 
+        @TestVisible
         private ServiceDescriptor(String serviceName, ServiceLifetime lifetime) {
             this.serviceName = serviceName.toUpperCase();
             this.lifetime = lifetime;
         }
 
+        @TestVisible
         private ServiceDescriptor(
             String serviceName,
             String implementationTypeName,
@@ -270,6 +284,10 @@ public with sharing class DI {
         }
 
         public Boolean equals(Object obj) {
+            if (this === obj) {
+                return true;
+            }
+
             ServiceDescriptor that = (ServiceDescriptor) obj;
 
             return this.lifetime == that.lifetime &&
@@ -278,9 +296,19 @@ public with sharing class DI {
                 this.implementationFactoryTypeName == that.implementationFactoryTypeName &&
                 this.implementationInstance == that.implementationInstance;
         }
+
+        // prettier-ignore
+        public Integer hashCode() {
+            Integer hashCode = this.serviceName == null ? 23 : this.serviceName.hashCode();
+            hashCode = (hashCode * 397) ^ (this.implementationTypeName == null ? 23 : this.implementationTypeName.hashCode());
+            hashCode = (hashCode * 397) ^ (this.implementationFactoryTypeName == null ? 23 : this.implementationFactoryTypeName.hashCode());
+            hashCode = (hashCode * 397) ^ (this.implementationInstance == null ? 23 : this.implementationInstance.hashCode());
+            hashCode = (hashCode * 397) ^ (this.lifetime == null ? 23 : this.lifetime.hashCode());
+            return hashCode;
+        }
     }
 
-    private virtual class ServiceCollectionImpl implements PrivateServiceCollection {
+    private virtual class ServiceCollectionImpl implements IServiceCollection {
         private final List<ServiceDescriptor> serviceDescriptors;
 
         {
@@ -310,11 +338,6 @@ public with sharing class DI {
             return this;
         }
 
-        public ServiceCollection addTransient(String serviceName, Object instance) {
-            this.addInstance(serviceName, instance, ServiceLifetime.TransientLifeTime);
-            return this;
-        }
-
         public ServiceCollection addScoped(String serviceName) {
             this.add(serviceName, serviceName, ServiceLifetime.ScopedLifeTime);
             return this;
@@ -330,7 +353,7 @@ public with sharing class DI {
             return this;
         }
 
-        public ServiceCollection addScoped(String serviceName, Object instance) {
+        private ServiceCollection addScoped(String serviceName, Object instance) {
             this.addInstance(serviceName, instance, ServiceLifetime.ScopedLifeTime);
             return this;
         }
@@ -355,7 +378,7 @@ public with sharing class DI {
             return this;
         }
 
-        public ServiceCollection addServices(PrivateServiceCollection services) {
+        public ServiceCollection addServices(IServiceCollection services) {
             this.serviceDescriptors.addAll(services.getDescriptors());
             return this;
         }
@@ -364,7 +387,7 @@ public with sharing class DI {
             ServiceDescriptor descriptor = new ServiceDescriptor(serviceName, implementationTypeName, lifetime);
             this.serviceDescriptors.add(descriptor);
             if (lifetime == ServiceLifetime.SingletonLifeTime) {
-                GLOBAL_MODULE.add(descriptor);
+                ROOT_MODULE.add(descriptor);
             }
             return descriptor;
         }
@@ -374,7 +397,7 @@ public with sharing class DI {
             descriptor.implementationInstance = instance;
             this.serviceDescriptors.add(descriptor);
             if (lifetime == ServiceLifetime.SingletonLifeTime) {
-                GLOBAL_MODULE.add(descriptor);
+                ROOT_MODULE.add(descriptor);
             }
             return descriptor;
         }
@@ -395,7 +418,7 @@ public with sharing class DI {
             );
             this.serviceDescriptors.add(descriptor);
             if (lifetime == ServiceLifetime.SingletonLifeTime) {
-                GLOBAL_MODULE.add(descriptor);
+                ROOT_MODULE.add(descriptor);
             }
             return descriptor;
         }
@@ -406,9 +429,9 @@ public with sharing class DI {
     // =========================
     // #region Service Providers
 
-    private class ServiceProviderImpl implements ServiceProvider, IServiceProviderEngineCallback {
+    private class ServiceProviderImpl implements ServiceProvider, ServiceProviderEngineCallback {
         private ServiceProviderEngine engine { get; set; }
-        protected Map<Type, IServiceRealizationFunc> realizedServices { get; private set; }
+        protected Map<String, ServiceRealizationFunc> realizedServices { get; private set; }
         private ServiceProviderEngineScope root { get; set; }
         private CallSiteFactory callSiteFactory { get; set; }
         private CallSiteRuntimeResolver callSiteResolver { get; set; }
@@ -416,11 +439,11 @@ public with sharing class DI {
 
         private ServiceProviderImpl(List<ServiceDescriptor> serviceDescriptors) {
             this.root = new ServiceProviderEngineScope(this, true);
-            this.realizedServices = new Map<Type, IServiceRealizationFunc>();
+            this.realizedServices = new Map<String, ServiceRealizationFunc>();
             this.engine = RUNTIME_SERVICE_PROVIDER_ENGINE;
 
             this.callSiteFactory = new CallSiteFactory(serviceDescriptors);
-            this.callSiteFactory.add(ServiceProvider.class, new ServiceProviderCallSite());
+            this.callSiteFactory.add(ServiceProvider.class.getName().toUpperCase(), new ServiceProviderCallSite());
             this.callSiteResolver = CALL_SITE_RUNTIME_RESOLVER;
         }
 
@@ -436,39 +459,63 @@ public with sharing class DI {
                 );
             }
 
-            return this.getService(serviceType, this.root);
+            return this.getService(serviceType.getName(), this.root);
         }
 
         public List<Object> getServices(Type serviceType) {
             if (serviceType == null) {
                 throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getService(Type serviceType): serviceType cannot be null.'
+                    'DI.ServiceProvider.getServices(Type serviceType): serviceType cannot be null.'
                 );
             }
 
-            return this.getServices(serviceType, this.root);
+            return this.getServices(serviceType.getName(), this.root);
+        }
+
+        public Object getService(String serviceName) {
+            if (String.isBlank(serviceName)) {
+                throw new DIIllegalArgumentException(
+                    'DI.ServiceProvider.getService(String serviceName): serviceName cannot be blank.'
+                );
+            }
+            return this.getService(serviceName, this.root);
+        }
+
+        public List<Object> getServices(String serviceName) {
+            if (String.isBlank(serviceName)) {
+                throw new DIIllegalArgumentException(
+                    'DI.ServiceProvider.getServices(String serviceName): serviceName cannot be blank.'
+                );
+            }
+            return this.getServices(serviceName, this.root);
         }
 
         public void onCreate(ServiceCallSite callSite) {
         }
 
-        public void onResolve(Type serviceType, IServiceScope scope) {
+        public void onResolve(String serviceType, ServiceScope scope) {
         }
 
-        private Object getService(Type serviceType, ServiceProviderEngineScope scope) {
-            IServiceRealizationFunc realizedService;
-            if (this.realizedServices.containsKey(serviceType)) {
-                realizedService = this.realizedServices.get(serviceType);
+        private List<Object> getServices(String serviceName, ServiceProviderEngineScope scope) {
+            String serviceListName = 'List<' + serviceName + '>';
+            return (List<Object>) this.getService(serviceListName, scope);
+        }
+
+        private Object getService(String serviceName, ServiceProviderEngineScope scope) {
+            serviceName = serviceName.replace(' ', '').toUpperCase(); // formalize service name
+            ServiceRealizationFunc realizedService;
+            if (this.realizedServices.containsKey(serviceName)) {
+                realizedService = this.realizedServices.get(serviceName);
             } else {
-                realizedService = createServiceAccessor(serviceType);
-                this.realizedServices.put(serviceType, realizedService);
+                realizedService = createServiceAccessor(serviceName);
+                this.realizedServices.put(serviceName, realizedService);
             }
-            this.onResolve(serviceType, scope);
+            this.onResolve(serviceName, scope);
             return realizedService.invoke(scope);
         }
 
-        private IServiceRealizationFunc createServiceAccessor(Type serviceType) {
-            ServiceCallSite callSite = this.callSiteFactory.getCallSite(serviceType);
+        private ServiceRealizationFunc createServiceAccessor(String serviceName) {
+            ServiceCallSite callSite = this.callSiteFactory.getCallSite(serviceName);
             if (callSite != null) {
                 this.onCreate(callSite);
                 return this.engine.realizeService(callSite);
@@ -477,21 +524,12 @@ public with sharing class DI {
             return new NullServiceRealizationFunc();
         }
 
-        private List<Object> getServices(Type serviceType, ServiceProviderEngineScope scope) {
-            Type serviceListType = Type.forName('List<' + serviceType.getName() + '>');
-            List<Object> services = (List<Object>) serviceListType.newInstance();
-            for (Object service : (List<Object>) this.getService(serviceListType, scope)) {
-                services.add(service);
-            }
-            return services;
-        }
-
-        private IServiceScope createScope() {
+        private ServiceScope createScope() {
             return new ServiceProviderEngineScope(this, false);
         }
     }
 
-    private class ServiceProviderEngineScope implements IServiceScope, ServiceProvider {
+    private class ServiceProviderEngineScope implements ServiceScope, ServiceProvider, ServiceScopeFactory {
         private Map<ServiceCacheKey, Object> resolvedServices { get; set; }
         private ServiceProviderImpl rootProvider { get; set; }
         private Boolean isRootScope { get; set; }
@@ -507,30 +545,57 @@ public with sharing class DI {
         }
 
         public Object getService(Type serviceType) {
-            return this.rootProvider.getService(serviceType, this);
+            if (serviceType == null) {
+                throw new DIIllegalArgumentException(
+                    'DI.ServiceProvider.getService(Type serviceType): serviceType cannot be null.'
+                );
+            }
+            return this.rootProvider.getService(serviceType.getName(), this);
         }
 
         public List<Object> getServices(Type serviceType) {
-            return this.rootProvider.getServices(serviceType, this);
+            if (serviceType == null) {
+                throw new DIIllegalArgumentException(
+                    'DI.ServiceProvider.getServices(Type serviceType): serviceType cannot be null.'
+                );
+            }
+            return this.rootProvider.getServices(serviceType.getName(), this);
         }
 
-        public IServiceScope createScope() {
+        public Object getService(String serviceName) {
+            if (String.isBlank(serviceName)) {
+                throw new DIIllegalArgumentException(
+                    'DI.ServiceProvider.getService(String serviceName): serviceName cannot be blank.'
+                );
+            }
+            return this.rootProvider.getService(serviceName, this);
+        }
+        public List<Object> getServices(String serviceName) {
+            if (String.isBlank(serviceName)) {
+                throw new DIIllegalArgumentException(
+                    'DI.ServiceProvider.getServices(String serviceName): serviceName cannot be blank.'
+                );
+            }
+            return this.rootProvider.getServices(serviceName, this);
+        }
+
+        public ServiceScope createScope() {
             return this.rootProvider.createScope();
         }
     }
 
     private abstract class ServiceProviderEngine {
-        protected abstract IServiceRealizationFunc realizeService(ServiceCallSite callSite);
+        protected abstract ServiceRealizationFunc realizeService(ServiceCallSite callSite);
     }
 
     // Reference RUNTIME_SERVICE_PROVIDER_ENGINE as the singleton instance;
     private class RuntimeServiceProviderEngine extends ServiceProviderEngine {
-        protected override IServiceRealizationFunc realizeService(ServiceCallSite callSite) {
+        protected override ServiceRealizationFunc realizeService(ServiceCallSite callSite) {
             return new RuntimeServiceRealizationFunc(callSite);
         }
     }
 
-    private class RuntimeServiceRealizationFunc implements IServiceRealizationFunc {
+    private class RuntimeServiceRealizationFunc implements ServiceRealizationFunc {
         private ServiceCallSite callSite { get; set; }
 
         private RuntimeServiceRealizationFunc(ServiceCallSite callSite) {
@@ -542,7 +607,7 @@ public with sharing class DI {
         }
     }
 
-    private class NullServiceRealizationFunc implements IServiceRealizationFunc {
+    private class NullServiceRealizationFunc implements ServiceRealizationFunc {
         public Object invoke(ServiceProviderEngineScope scope) {
             return null;
         }
@@ -557,9 +622,6 @@ public with sharing class DI {
     // Reference CALL_SITE_RUNTIME_RESOLVER as the singleton instance;
     private class CallSiteRuntimeResolver extends CallSiteVisitor {
         private ServiceProviderEngineScope rootScope { get; set; }
-
-        private CallSiteRuntimeResolver() {
-        }
 
         private CallSiteRuntimeResolver(ServiceProviderEngineScope rootScope) {
             this.rootScope = rootScope;
@@ -620,11 +682,18 @@ public with sharing class DI {
         protected virtual Object visitCallSiteMain(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
             switch on callSite.kind {
                 when Factory {
-                    return ((FactoryCallSite) callSite).factory.newInstance(callSite.implementationType, scope);
+                    FactoryCallSite factoryCallSite = (FactoryCallSite) callSite;
+                    IServiceFactory factory = factoryCallSite.factory;
+                    if (factory instanceof ServiceFactory) {
+                        return ((ServiceFactory) factory).newInstance(callSite.implementationType, scope);
+                    } else if (factory instanceof GenericServiceFactory) {
+                        return ((GenericServiceFactory) factory)
+                            .newInstance(callSite.implementationType, factoryCallSite.genericTypes, scope);
+                    }
                 }
                 when IEnumerable {
-                    List<Object> services = new List<Object>();
-                    for (ServiceCallSite serviceCallSite : ((IEnumerableCallSite) callSite).serviceCallSites) {
+                    List<Object> services = (List<Object>) callSite.serviceType.newInstance();
+                    for (ServiceCallSite serviceCallSite : ((EnumerableCallSite) callSite).serviceCallSites) {
                         services.add(this.visitCallSite(serviceCallSite, scope));
                     }
                     return services;
@@ -638,10 +707,8 @@ public with sharing class DI {
                 when ServiceProvider {
                     return scope;
                 }
-                when else {
-                    throw new NoSuchElementException();
-                }
             }
+            throw new NoSuchElementException();
         }
 
         protected virtual Object visitNoCache(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
@@ -664,36 +731,56 @@ public with sharing class DI {
     private class CallSiteFactory {
         private final Integer DEFAULT_SLOT = 0;
         private List<ServiceDescriptor> serviceDescriptors { get; set; }
-        private Map<Type, ServiceCallSite> callSiteCache { get; set; }
+        private Map<String, ServiceCallSite> callSiteCache { get; set; }
 
         private CallSiteFactory(List<ServiceDescriptor> serviceDescriptors) {
             this.serviceDescriptors = serviceDescriptors;
-            callSiteCache = new Map<Type, ServiceCallSite>();
+            callSiteCache = new Map<String, ServiceCallSite>();
         }
 
-        private void add(Type serviceType, ServiceCallSite callSite) {
-            this.callSiteCache.put(serviceType, callSite);
+        private void add(String serviceName, ServiceCallSite callSite) {
+            this.callSiteCache.put(serviceName, callSite);
         }
 
-        private ServiceCallSite getCallSite(Type serviceType) {
-            if (!callSiteCache.containsKey(serviceType)) {
-                callSiteCache.put(serviceType, createCallSite(serviceType));
+        private ServiceCallSite getCallSite(String serviceName) {
+            if (!callSiteCache.containsKey(serviceName)) {
+                callSiteCache.put(serviceName, createCallSite(serviceName));
             }
-            return callSiteCache.get(serviceType);
+            return callSiteCache.get(serviceName);
         }
 
-        private ServiceCallSite createCallSite(Type serviceType) {
-            if ((List<Object>.class).isAssignableFrom(serviceType)) {
-                return tryCreateEnumerable(serviceType);
+        private ServiceCallSite createCallSite(String serviceName) {
+            List<Type> genericTypes = new List<Type>();
+            Boolean isEnumerable = false;
+
+            if (serviceName.startsWith('LIST')) {
+                serviceName = serviceName.replace('LIST<', '').replace('>', '');
+                isEnumerable = true;
+            }
+
+            if (serviceName.contains('<')) {
+                List<String> splits = serviceName.replace('>', '').split('<');
+                serviceName = splits[0];
+                for (String genericName : splits[1].split(',')) {
+                    genericTypes.add(Type.forName(genericName));
+                    // TODO: handle exception
+                }
+            }
+
+            Type serviceType = Type.forName(serviceName);
+            // TODO: handle exception
+
+            if (isEnumerable) {
+                return tryCreateEnumerable(serviceName, genericTypes);
             } else {
-                return tryCreateExact(serviceType);
+                return tryCreateExact(serviceName, genericTypes);
             }
         }
 
-        private ServiceCallSite tryCreateExact(Type serviceType) {
+        private ServiceCallSite tryCreateExact(String serviceName, List<Type> genericTypes) {
             ServiceCallSite callSite;
             for (Integer i = this.serviceDescriptors.size(); i > 0; i--) {
-                callSite = tryCreateExact(serviceDescriptors[i - 1], serviceType, this.DEFAULT_SLOT);
+                callSite = tryCreateExact(serviceDescriptors[i - 1], serviceName, genericTypes, this.DEFAULT_SLOT);
                 if (callSite != null) {
                     break;
                 }
@@ -701,16 +788,45 @@ public with sharing class DI {
             return callSite;
         }
 
-        private ServiceCallSite tryCreateExact(ServiceDescriptor descriptor, Type serviceType, Integer slot) {
-            if (descriptor.serviceName == serviceType.getName().toUpperCase()) {
+        private ServiceCallSite tryCreateEnumerable(String serviceName, List<Type> genericTypes) {
+            List<ServiceDescriptor> descriptors = new List<ServiceDescriptor>();
+            for (ServiceDescriptor serviceDescriptor : this.serviceDescriptors) {
+                if (serviceDescriptor.serviceName == serviceName) {
+                    descriptors.add(serviceDescriptor);
+                }
+            }
+
+            List<ServiceCallSite> serviceCallSites = new List<ServiceCallSite>();
+            for (Integer i = descriptors.size(); i > 0; i--) {
+                Integer slot = descriptors.size() - i;
+                ServiceCallSite callSite = tryCreateExact(descriptors[i - 1], serviceName, genericTypes, slot);
+                if (callSite != null) {
+                    serviceCallSites.add(callSite);
+                }
+            }
+
+            Type serviceType = Type.forName(serviceName);
+            return new EnumerableCallSite(serviceType, serviceCallSites);
+        }
+
+        private ServiceCallSite tryCreateExact(
+            ServiceDescriptor descriptor,
+            String serviceName,
+            List<Type> genericTypes,
+            Integer slot
+        ) {
+            if (descriptor.serviceName == serviceName) {
+                Type serviceType = Type.forName(serviceName);
                 ServiceCallSite callSite;
-                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceType, slot);
+                // TODO: add genericTypes as cache key? And test different generic types
+                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceType, genericTypes, slot);
                 if (descriptor.implementationInstance != null) {
                     callSite = new ConstantCallSite(serviceType, descriptor.implementationInstance);
                 } else if (descriptor.implementationFactoryTypeName != null) {
                     callSite = new FactoryCallSite(
                         cache,
                         serviceType,
+                        genericTypes,
                         descriptor.implementationTypeName,
                         descriptor.implementationFactoryTypeName
                     );
@@ -723,29 +839,6 @@ public with sharing class DI {
                 return callSite;
             }
             return null;
-        }
-
-        private ServiceCallSite tryCreateEnumerable(Type serviceListType) {
-            String serviceName = serviceListType.getName().replace('List<', '').replace('>', '').toUpperCase();
-            Type serviceType = Type.forName(serviceName);
-
-            List<ServiceDescriptor> descriptors = new List<ServiceDescriptor>();
-            for (ServiceDescriptor serviceDescriptor : this.serviceDescriptors) {
-                if (serviceDescriptor.serviceName == serviceName) {
-                    descriptors.add(serviceDescriptor);
-                }
-            }
-
-            List<ServiceCallSite> serviceCallSites = new List<ServiceCallSite>();
-            for (Integer i = descriptors.size(); i > 0; i--) {
-                Integer slot = descriptors.size() - i;
-                ServiceCallSite callSite = tryCreateExact(descriptors[i - 1], serviceType, slot);
-                if (callSite != null) {
-                    serviceCallSites.add(callSite);
-                }
-            }
-
-            return new IEnumerableCallSite(serviceType, serviceCallSites);
         }
     }
 
@@ -798,19 +891,26 @@ public with sharing class DI {
     }
 
     private class FactoryCallSite extends ServiceCallSite {
-        private ServiceFactory factory { get; set; }
+        private IServiceFactory factory { get; set; }
+        private List<Type> genericTypes { get; set; }
 
         private FactoryCallSite(
             ResultCache cache,
             type serviceType,
+            List<Type> genericTypes,
             String implementationTypeName,
             String factoryTypeName
         ) {
             super(cache);
             Type factoryType = Type.forName(factoryTypeName);
-            if (!ServiceFactory.class.isAssignableFrom(factoryType)) {
+            if (
+                !ServiceFactory.class.isAssignableFrom(factoryType) &&
+                !GenericServiceFactory.class.isAssignableFrom(factoryType)
+            ) {
                 throw new DITypeException(
-                    'DI registered factory type [' + factoryType + '] doesn\'t implement [DI.ServiceFactory].'
+                    'DI registered factory type [' +
+                        factoryType +
+                        '] doesn\'t implement [DI.ServiceFactory] or [DI.GenericServiceFactory].'
                 );
             }
 
@@ -826,8 +926,9 @@ public with sharing class DI {
             }
 
             this.serviceType = serviceType;
+            this.genericTypes = genericTypes;
             this.implementationType = implementationType;
-            this.factory = (ServiceFactory) factoryType.newInstance();
+            this.factory = (IServiceFactory) factoryType.newInstance();
             this.kind = CallSiteKind.Factory;
         }
     }
@@ -852,13 +953,14 @@ public with sharing class DI {
         }
     }
 
-    private class IEnumerableCallSite extends ServiceCallSite {
+    private class EnumerableCallSite extends ServiceCallSite {
         private Type itemType { get; set; }
         private List<ServiceCallSite> serviceCallSites { get; set; }
 
-        private IEnumerableCallSite(Type itemType, List<ServiceCallSite> serviceCallSites) {
+        private EnumerableCallSite(Type itemType, List<ServiceCallSite> serviceCallSites) {
             super(RESULT_CACHE_NONE);
             this.itemType = itemType;
+            this.serviceType = Type.forName('List<' + itemType.getName() + '>');
             this.serviceCallSites = serviceCallSites;
             this.kind = CallSiteKind.IEnumerable;
         }
@@ -873,7 +975,7 @@ public with sharing class DI {
             Key = cacheKey;
         }
 
-        private ResultCache(ServiceLifetime lifetime, type serviceType, Integer slot) {
+        private ResultCache(ServiceLifetime lifetime, type serviceType, List<Type> genericTypes, Integer slot) {
             switch on lifetime {
                 when SingletonLifetime {
                     this.location = CallSiteResultCacheLocation.Root;
@@ -889,26 +991,37 @@ public with sharing class DI {
                 }
             }
 
-            this.key = new ServiceCacheKey(serviceType, slot);
+            this.key = new ServiceCacheKey(serviceType, genericTypes, slot);
         }
     }
 
     private class ServiceCacheKey {
         private Type serviceType { get; set; }
+        private List<Type> genericTypes { get; set; }
         private Integer slot { get; set; }
 
-        private ServiceCacheKey(Type serviceType, Integer slot) {
+        private ServiceCacheKey(Type serviceType, List<Type> genericTypes, Integer slot) {
             this.serviceType = serviceType;
+            this.genericTypes = genericTypes;
             this.slot = slot;
         }
 
         public Boolean equals(Object obj) {
-            ServiceCacheKey other = (ServiceCacheKey) obj;
-            return this.serviceType == other.serviceType && this.slot == other.slot;
+            if (this === obj) {
+                return true;
+            }
+
+            ServiceCacheKey that = (ServiceCacheKey) obj;
+            return this.serviceType == that.serviceType &&
+                this.genericTypes == that.genericTypes &&
+                this.slot == that.slot;
         }
 
         public Integer hashCode() {
-            return ((this.serviceType == null ? 23 : this.serviceType.hashCode()) * 397) ^ this.slot;
+            Integer hashCode = this.serviceType == null ? 23 : this.serviceType.hashCode();
+            hashCode = (hashCode * 397) ^ (this.genericTypes == null ? 23 : this.genericTypes.hashCode());
+            hashCode = (hashCode * 397) ^ this.slot;
+            return hashCode;
         }
     }
 
@@ -931,15 +1044,21 @@ public with sharing class DI {
 
     // ==================
     // #region Interfaces
-    public interface ServiceFactory {
+    private interface IServiceFactory {
+    }
+
+    public interface ServiceFactory extends IServiceFactory {
         Object newInstance(Type serviceType, ServiceProvider serviceProvider);
+    }
+
+    public interface GenericServiceFactory extends IServiceFactory {
+        Object newInstance(Type serviceType, List<Type> genericTypes, ServiceProvider serviceProvider);
     }
 
     public interface ServiceCollection {
         ServiceProvider buildServiceProvider();
 
         ServiceCollection addTransient(String serviceTypeName);
-        ServiceCollection addTransient(String serviceTypeName, Object instance);
         ServiceCollection addTransient(String serviceTypeName, String implementationTypeName);
         ServiceCollection addTransientFactory(String serviceTypeName, String factoryTypeName);
 
@@ -949,35 +1068,36 @@ public with sharing class DI {
         ServiceCollection addSingletonFactory(String serviceTypeName, String factoryTypeName);
 
         ServiceCollection addScoped(String serviceName);
-        ServiceCollection addScoped(String serviceName, Object instance);
         ServiceCollection addScoped(String serviceName, String implementationTypeName);
         ServiceCollection addScopedFactory(String serviceName, String factoryTypeName);
     }
 
-    private interface PrivateServiceCollection extends ServiceCollection {
+    private interface IServiceCollection extends ServiceCollection {
         List<ServiceDescriptor> getDescriptors();
-        ServiceCollection addServices(PrivateServiceCollection services);
+        ServiceCollection addServices(IServiceCollection services);
     }
 
     public interface ServiceProvider {
         Object getService(Type serviceType);
         List<Object> getServices(Type serviceType);
+        Object getService(String serviceName);
+        List<Object> getServices(String serviceName);
     }
 
-    private interface IServiceScope {
+    public interface ServiceScope {
         ServiceProvider getServiceProvider();
     }
 
-    private interface IServiceScopeFactory {
-        IServiceScope createScope();
+    public interface ServiceScopeFactory {
+        ServiceScope createScope();
     }
 
-    private interface IServiceProviderEngineCallback {
+    private interface ServiceProviderEngineCallback {
         void onCreate(ServiceCallSite callSite);
-        void onResolve(Type serviceType, IServiceScope scope);
+        void onResolve(String serviceType, ServiceScope scope);
     }
 
-    private interface IServiceRealizationFunc {
+    private interface ServiceRealizationFunc {
         Object invoke(ServiceProviderEngineScope scope);
     }
 
@@ -989,3 +1109,42 @@ public with sharing class DI {
     // #endregion
     // ==================
 }
+
+// @startuml
+// ServiceProvider -> CallSiteFactory: getCallSite()
+// ServiceProvider <- CallSiteFactory: callSite
+// ServiceProvider -> ServiceProviderEngine: realizeService(callSite)
+// ServiceProvider <- ServiceProviderEngine: realizedService
+// ServiceProvider -> ServiceRealizationFunc: invoke(scope)
+// ServiceRealizationFunc-> CallSiteVisitor: resolve(callSite, scope)
+// CallSiteVisitor-> CallSiteVisitor: visitCallSite(callSite, scope)
+// @enduml
+
+// ┌───────────────┐          ┌───────────────┐          ┌─────────────────────┐          ┌──────────────────────┐          ┌───────────────┐
+// │ServiceProvider│          │CallSiteFactory│          │ServiceProviderEngine│          │ServiceRealizationFunc│          │CallSiteVisitor│
+// └───────┬───────┘          └───────┬───────┘          └──────────┬──────────┘          └──────────┬───────────┘          └───────┬───────┘
+//         │      getCallSite()       │                             │                                │                              │
+//         │─────────────────────────>│                             │                                │                              │
+//         │                          │                             │                                │                              │
+//         │        callSite          │                             │                                │                              │
+//         │<─────────────────────────│                             │                                │                              │
+//         │                          │                             │                                │                              │
+//         │               realizeService(callSite)                 │                                │                              │
+//         │───────────────────────────────────────────────────────>│                                │                              │
+//         │                          │                             │                                │                              │
+//         │                    realizedService                     │                                │                              │
+//         │<───────────────────────────────────────────────────────│                                │                              │
+//         │                          │                             │                                │                              │
+//         │                          │          invoke(scope)      │                                │                              │
+//         │────────────────────────────────────────────────────────────────────────────────────────>│                              │
+//         │                          │                             │                                │                              │
+//         │                          │                             │                                │   resolve(callSite, scope)   │
+//         │                          │                             │                                │─────────────────────────────>│
+//         │                          │                             │                                │                              │
+//         │                          │                             │                                │                              ────┐
+//         │                          │                             │                                │                                  │ visitCallSite(callSite, scope)
+//         │                          │                             │                                │                              <───┘
+// ┌───────┴───────┐          ┌───────┴───────┐          ┌──────────┴──────────┐          ┌──────────┴───────────┐          ┌───────┴───────┐
+// │ServiceProvider│          │CallSiteFactory│          │ServiceProviderEngine│          │ServiceRealizationFunc│          │CallSiteVisitor│
+// └───────────────┘          └───────────────┘          └─────────────────────┘          └──────────────────────┘          └───────────────┘
+
