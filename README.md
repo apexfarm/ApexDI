@@ -97,9 +97,9 @@ public with sharing class AccountController {
 
 The performance benchmark is carried under DEBUG debug level in Developer sandbox.
 
-1. Register 100 different service types with `transient` lifetime.
-2. Resolve 100 service instances for _EACH UNIQUE_ service type registered above for the first time. The slowness is caused the type conversion by `Type.forName(String)`.
-3. Resolve 100 service instances for each service type registered above for second time. Subsequent instantiations are noticeably faster, because the converted types are cached for reuse.
+1. Register 100 unique service types with `transient` lifetime.
+2. Resolve the 100 service instances for the first time. The slowness is caused by the type conversion of `Type.forName(String)`.
+3. Resolve the 100 service instances for second time. Subsequent instantiations are noticeably faster, because the converted types are cached for reuse.
 4. A simple call to `new Something()` for 100 times.
 
 |               | 1. Register 100 Service Types | 2. Resolve 100 Services 1st Time | 3. Resolve 100 Services 2nd Time | 4. New 100 Services |
@@ -109,12 +109,11 @@ The performance benchmark is carried under DEBUG debug level in Developer sandbo
 
 ### 1.2 Performance Consideration
 
-1. Interfaces and abstractions registered with `addTransient('IAccountService', 'AccountService')` have no impact to the performance, and should not be counted as the 100 services above. Therefore feel free to use as many interfaces as needed, this is a best practice.
-2. Usually in a single transaction, it won't involve 100 unique service type resolution. And also once a service type is realized, it will be reused to spawn more instances. Therefore please do not hesitate to use `transient` lifetime when appropriate.
-3. For a project with 1K services, we can still register all of them together into one DI container. Assume each transaction will realize 20 unique services on average, the total warmup time for each transaction will be **~110 ms**.
-   1. The time spent for type registration is proportional to above benchmark, so for 1K services it will take ~60 ms.
-   2. The time spent for first time resolution is not proportional to above, to resolve 20 services out of the 1K services registered, it will take ~50 ms.
-4. However It is strongly recommended to use modules ([jump to section](#4-modules)) to limit the number of registered services under 100, including services registered inside dependent modules. Assume each transaction will realize 20 unique services on average, the total warmup time for each transaction will be **~50 ms**.
+1. Feel free to use interfaces and abstractions for service registration and resolution, this is a best practice. They have no impact to the performance and abstraction types are excluded in the count of above 100 services.
+2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is fast.
+3. Please don't be panic for the 100 services first time resolution performance. Usually in a single transaction, it won't involve 100 unique services to work together. The max should be around 20, and the majority should be below 10.
+4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~110 ms**. Assume each transaction will realize 20 unique services.
+5. However It is strongly recommended to use modules ([jump to section](#4-modules)) to limit the number of registered services below 100, including services inside dependent modules. The maximum warmup time for each transaction with 20 unique service realization should be **~50 ms** then.
 
 ## 2. Services
 
