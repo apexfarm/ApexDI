@@ -24,7 +24,7 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
 - **v2.1**: Support generic factory ([jump to section](#33-generic-factory)).
 - **v2.2**: Support generic services ([jump to section](#34-generic-service)).
 - **v2.2**: Improve performance and provide performance guidelines ([jump to section](#1-performance)).
-- **v2.2 Breaking Change**: Deprecated the support to `getServices` API, due to trade-off made for performance tuning.
+- **v2.2**: Drop the support of `getServices` API, due to trade-off made after performance tuning.
 
 ---
 
@@ -56,6 +56,7 @@ public with sharing class AccountController {
 ### Online Articles
 
 - [Salesforce Dependency Injection with Apex DI](https://medium.com/@jeff.jianfeng.jin/salesforce-project-with-apex-dependency-injection-a3d0e369be25) (medium link)
+- [Salesforce Generic Types with Apex DI](https://medium.com/@jeff.jianfeng.jin/salesforce-generic-types-with-apex-di-142a1d8132c3) (medium link)
 
 ---
 
