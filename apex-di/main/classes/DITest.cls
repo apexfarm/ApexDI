@@ -464,12 +464,12 @@ public class DITest {
 
     public class Module3 extends DI.Module {
         protected override void configure(DI.ServiceCollection services) {
+            services.addTransient('DITest.ILogger', 'DITest.EmailLogger');
         }
     }
 
     public class Module4 extends DI.Module {
         public override void configure(DI.ServiceCollection services) {
-            services.addTransient('DITest.ILogger', 'DITest.EmailLogger');
         }
     }
 
@@ -480,9 +480,13 @@ public class DITest {
 
     @IsTest
     static void test_modules_dependency() {
-        DI.Module module = DI.getModule(Module1.class);
-        ILogger logger = (ILogger) module.getService(ILogger.class);
-        Assert.isTrue(logger instanceof TableLogger);
+        DI.Module module1 = DI.getModule(Module1.class);
+        ILogger logger1 = (ILogger) module1.getService(ILogger.class);
+        Assert.isTrue(logger1 instanceof TableLogger);
+
+        DI.Module module3 = DI.getModule(Module3.class);
+        ILogger logger3 = (ILogger) module3.getService(ILogger.class);
+        Assert.isTrue(logger3 instanceof EmailLogger);
     }
 
     @IsTest

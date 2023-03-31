@@ -68,7 +68,7 @@ public with sharing class AccountController {
   - [2.1 Service Lifetime](#21-service-lifetime)
   - [2.2 Singleton Lifetime Caveat](#22-singleton-lifetime-caveat)
   - [2.3 Register with Concrete Types](#23-register-with-concrete-types)
-  - [2.4 Register with Multiple Implementations](#24-register-with-multiple-implementations)
+  - [2.4 Service Override](#24-service-override)
 - [3. Factory](#3-factory)
   - [3.1 Constructor Injection](#31-constructor-injection)
   - [3.2 Factory as Inner Class](#32-factory-as-inner-class)
@@ -110,7 +110,7 @@ The performance benchmark is carried under DEBUG debug level in Developer sandbo
 ### 1.2 Performance Consideration
 
 1. Feel free to use interfaces and abstractions for service registration and resolution, this is a best practice. They have no impact to the performance, and are excluded in the count of above 100 services.
-2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is fast.
+2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is fast. For myself, I prefer to use transient for services by default, and only make them singleton when have good reasons.
 3. Please don't be panic for the 100 services first time resolution performance. Usually in a single transaction, it won't involve 100 unique services to work together. The max should be around 20, and the majority should be less than 10.
 4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~110 ms**. Assume each transaction will realize 20 unique services.
 5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be less than **~50 ms**.
@@ -450,16 +450,21 @@ public class Module2 extends DI.Module {
     }
 }
 
-public class Module4 extends DI.Module {
+public class Module3 extends DI.Module {
     public override void configure(DI.ServiceCollection services) {
         services.addTransient('ILogger', 'EmailLogger');
     }
 }
 
-// TableLogger is resovled because module 2 is registered after 4
-DI.Module module = DI.getModule(Module1.class);
-ILogger logger = (ILogger) module.getService(ILogger.class);
-Assert.isTrue(logger instanceof TableLogger);
+// module 1 realizes TableLogger because module 2 is registered after 3
+DI.Module module1 = DI.getModule(Module1.class);
+ILogger logger1 = (ILogger) module1.getService(ILogger.class);
+Assert.isTrue(logger1 instanceof TableLogger);
+
+// module 3 still realizes EmailLogger and its boundary is unbreachable
+DI.Module module3 = DI.getModule(Module3.class);
+ILogger logger3 = (ILogger) module3.getService(ILogger.class);
+Assert.isTrue(logger3 instanceof EmailLogger);
 ```
 
 ### 4.3 Module File Structure
