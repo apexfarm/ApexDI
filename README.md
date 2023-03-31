@@ -456,12 +456,12 @@ public class Module3 extends DI.Module {
     }
 }
 
-// module 1 realizes TableLogger because module 2 is registered after 3
+// module1 realizes TableLogger because module2 is registered after 3
 DI.Module module1 = DI.getModule(Module1.class);
 ILogger logger1 = (ILogger) module1.getService(ILogger.class);
 Assert.isTrue(logger1 instanceof TableLogger);
 
-// module 3 still realizes EmailLogger and its boundary is intact
+// module3 still realizes EmailLogger and its boundary is intact
 DI.Module module3 = DI.getModule(Module3.class);
 ILogger logger3 = (ILogger) module3.getService(ILogger.class);
 Assert.isTrue(logger3 instanceof EmailLogger);
