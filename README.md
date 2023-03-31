@@ -98,8 +98,8 @@ public with sharing class AccountController {
 The performance benchmark is carried under DEBUG debug level in Developer sandbox.
 
 1. Register 100 unique service types with `transient` lifetime.
-2. Resolve the 100 service instances for the first time. The slowness is caused by the type conversion of `Type.forName(String)`.
-3. Resolve the 100 service instances for second time. Subsequent instantiations are noticeably faster, because the converted types are cached for reuse.
+2. Resolve the 100 service instances for the first time. The slowness is caused by the type reflection and type loading.
+3. Resolve the 100 service instances for second time. Subsequent instantiations are noticeably faster, because the types are cached for reuse.
 4. A simple call to `new Something()` for 100 times.
 
 |               | 1. Register 100 Service Types | 2. Resolve 100 Services 1st Time | 3. Resolve 100 Services 2nd Time | 4. New 100 Services |
@@ -113,7 +113,7 @@ The performance benchmark is carried under DEBUG debug level in Developer sandbo
 2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is fast.
 3. Please don't be panic for the 100 services first time resolution performance. Usually in a single transaction, it won't involve 100 unique services to work together. The max should be around 20, and the majority should be below 10.
 4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~110 ms**. Assume each transaction will realize 20 unique services.
-5. However It is strongly recommended to use modules ([jump to section](#4-modules)) to limit the number of registered services below 100, including services inside dependent modules. The maximum warmup time for each transaction with 20 unique service realization should be **~50 ms** then.
+5. However It is strongly recommended to use modules ([jump to section](#4-modules)) to limit the number of registered services below 100, including services inside dependent modules. The maximum warmup time for each transaction with 20 unique service realization should be **~50 ms**.
 
 ## 2. Services
 
