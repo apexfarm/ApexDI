@@ -461,7 +461,7 @@ DI.Module module1 = DI.getModule(Module1.class);
 ILogger logger1 = (ILogger) module1.getService(ILogger.class);
 Assert.isTrue(logger1 instanceof TableLogger);
 
-// module 3 still realizes EmailLogger and its boundary is unbreachable
+// module 3 still realizes EmailLogger and its boundary is intact
 DI.Module module3 = DI.getModule(Module3.class);
 ILogger logger3 = (ILogger) module3.getService(ILogger.class);
 Assert.isTrue(logger3 instanceof EmailLogger);
