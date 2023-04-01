@@ -21,7 +21,7 @@ public with sharing class DI {
     private static final String DEFAULT_MODULE = 'Default';
     private static final ResultCache RESULT_CACHE_NONE = new ResultCache(
         CallSiteResultCacheLocation.None,
-        new ServiceCacheKey(null, null, 0)
+        new ServiceCacheKey(null, null)
     );
     private static final CallSiteRuntimeResolver CALL_SITE_RUNTIME_RESOLVER;
     private static final RuntimeServiceProviderEngine RUNTIME_SERVICE_PROVIDER_ENGINE = new RuntimeServiceProviderEngine();
@@ -378,9 +378,7 @@ public with sharing class DI {
 
         public Object getService(Type serviceType) {
             if (serviceType == null) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getService(Type serviceType): serviceType cannot be null.'
-                );
+                throw new DIIllegalArgumentException('getService(Type serviceType): serviceType cannot be null.');
             }
 
             return this.getService(serviceType.getName(), this.root);
@@ -388,9 +386,7 @@ public with sharing class DI {
 
         public Object getService(String serviceName) {
             if (String.isBlank(serviceName)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getService(String serviceName): serviceName cannot be blank.'
-                );
+                throw new DIIllegalArgumentException('getService(String serviceName): serviceName cannot be blank.');
             }
             return this.getService(serviceName, this.root);
         }
@@ -438,18 +434,14 @@ public with sharing class DI {
 
         public Object getService(Type serviceType) {
             if (serviceType == null) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getService(Type serviceType): serviceType cannot be null.'
-                );
+                throw new DIIllegalArgumentException('getService(Type serviceType): serviceType cannot be null.');
             }
             return this.rootProvider.getService(serviceType.getName(), this);
         }
 
         public Object getService(String serviceName) {
             if (String.isBlank(serviceName)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ServiceProvider.getService(String serviceName): serviceName cannot be blank.'
-                );
+                throw new DIIllegalArgumentException('getService(String serviceName): serviceName cannot be blank.');
             }
             return this.rootProvider.getService(serviceName, this);
         }
@@ -597,7 +589,6 @@ public with sharing class DI {
     }
 
     private class CallSiteFactory {
-        private final Integer DEFAULT_SLOT = 0;
         private Map<String, ServiceDescriptor> serviceDescriptors { get; set; }
         private Map<String, ServiceCallSite> callSiteCache { get; set; }
 
@@ -628,24 +619,18 @@ public with sharing class DI {
                 }
             }
 
-            return tryCreateExact(
-                this.serviceDescriptors.get(serviceName),
-                serviceName,
-                genericTypes,
-                this.DEFAULT_SLOT
-            );
+            return tryCreateExact(this.serviceDescriptors.get(serviceName), serviceName, genericTypes);
         }
 
         private ServiceCallSite tryCreateExact(
             ServiceDescriptor descriptor,
             String serviceName,
-            List<String> genericTypes,
-            Integer slot
+            List<String> genericTypes
         ) {
             ServiceCallSite callSite;
 
             if (descriptor != null) {
-                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceName, genericTypes, slot);
+                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceName, genericTypes);
                 if (descriptor.implementationInstance != null) {
                     callSite = new ConstantCallSite(serviceName, descriptor.implementationInstance);
                 } else if (descriptor.implementationFactoryTypeName != null) {
@@ -779,7 +764,7 @@ public with sharing class DI {
             Key = cacheKey;
         }
 
-        private ResultCache(ServiceLifetime lifetime, String serviceName, List<String> genericTypes, Integer slot) {
+        private ResultCache(ServiceLifetime lifetime, String serviceName, List<String> genericTypes) {
             switch on lifetime {
                 when SingletonLifetime {
                     this.location = CallSiteResultCacheLocation.Root;
@@ -795,19 +780,17 @@ public with sharing class DI {
                 }
             }
 
-            this.key = new ServiceCacheKey(serviceName, genericTypes, slot);
+            this.key = new ServiceCacheKey(serviceName, genericTypes);
         }
     }
 
     private class ServiceCacheKey {
         private String serviceName { get; set; }
         private List<String> genericTypes { get; set; }
-        private Integer slot { get; set; }
 
-        private ServiceCacheKey(String serviceName, List<String> genericTypes, Integer slot) {
+        private ServiceCacheKey(String serviceName, List<String> genericTypes) {
             this.serviceName = serviceName;
             this.genericTypes = genericTypes;
-            this.slot = slot;
         }
 
         public Boolean equals(Object obj) {
@@ -816,15 +799,12 @@ public with sharing class DI {
             }
 
             ServiceCacheKey that = (ServiceCacheKey) obj;
-            return this.serviceName == that.serviceName &&
-                this.genericTypes == that.genericTypes &&
-                this.slot == that.slot;
+            return this.serviceName == that.serviceName && this.genericTypes == that.genericTypes;
         }
 
         public Integer hashCode() {
             Integer hashCode = this.serviceName == null ? 23 : this.serviceName.hashCode();
             hashCode = (hashCode * 397) ^ (this.genericTypes == null ? 23 : this.genericTypes.hashCode());
-            hashCode = (hashCode * 397) ^ this.slot;
             return hashCode;
         }
     }

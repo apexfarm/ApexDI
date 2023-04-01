@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-2.2.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-2.2.2-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
 
 A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework ported from .Net Core. It can help:
 
@@ -13,8 +13,8 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
 
 | Environment           | Installation Link                                                                                                                                         | Version   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoBAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.2.1 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoBAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.2.1 |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoGAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.2.2 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoGAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.2.2 |
 
 ---
 
@@ -96,7 +96,7 @@ public with sharing class AccountController {
 
 ### 1.1 Performance Benchmark
 
-The performance benchmark is carried under DEBUG debug level in Developer sandbox.
+The performance benchmark are averages of three samples carried under DEBUG debug level in Developer sandbox.
 
 1. Register 100 unique service types with transient lifetime.
 2. Resolve the 100 service instances for the first time. The slowness is caused by the type reflection and type loading.
@@ -105,8 +105,8 @@ The performance benchmark is carried under DEBUG debug level in Developer sandbo
 
 |               | 1. Register 100 Service Types | 2. Resolve 100 Services 1st Time | 3. Resolve 100 Services 2nd Time | 4. New 100 Services |
 | ------------- | ----------------------------- | -------------------------------- | -------------------------------- | ------------------- |
-| **Time (ms)** | ~6                            | ~60                              | ~19                              | ~1                  |
-| **CPU Time**  | ~6                            | ~50                              | ~16                              | ~1                  |
+| **Time (ms)** | ~7                            | ~70                              | ~19                              | 1                   |
+| **CPU Time**  | ~7                            | ~57                              | ~19                              | 0                   |
 
 ### 1.2 Performance Consideration
 
