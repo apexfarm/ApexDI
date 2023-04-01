@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-2.2-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-2.2.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
 
 A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework ported from .Net Core. It can help:
 
@@ -11,10 +11,10 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
    - Create boundaries to avoid loading of unused services into current module.
    - Create dependencies to increase the reusability of services in other modules.
 
-| Environment           | Installation Link                                                                                                                                         | Version |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfjyAAC"><img src="docs/images/deploy-button.png"></a> | ver 2.2 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfjyAAC"><img src="docs/images/deploy-button.png"></a>  | ver 2.2 |
+| Environment           | Installation Link                                                                                                                                         | Version   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoBAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.2.1 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoBAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.2.1 |
 
 ---
 
@@ -105,16 +105,16 @@ The performance benchmark is carried under DEBUG debug level in Developer sandbo
 
 |               | 1. Register 100 Service Types | 2. Resolve 100 Services 1st Time | 3. Resolve 100 Services 2nd Time | 4. New 100 Services |
 | ------------- | ----------------------------- | -------------------------------- | -------------------------------- | ------------------- |
-| **Time (ms)** | ~6                            | ~160                             | ~16                              | ~1                  |
-| **CPU Time**  | ~6                            | ~110                             | ~16                              | ~1                  |
+| **Time (ms)** | ~6                            | ~60                              | ~19                              | ~1                  |
+| **CPU Time**  | ~6                            | ~50                              | ~16                              | ~1                  |
 
 ### 1.2 Performance Consideration
 
 1. Feel free to use interfaces and abstractions for service registration and resolution, this is a best practice. They have no impact to the performance, and are excluded in the count of above 100 services.
 2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is fast. For myself, I prefer to use transient for services by default, and only make them singleton when have good reasons.
-3. Please don't be panic for the 100 services first time resolution performance. Usually in a single transaction, it won't involve 100 unique services to work together. The max should be around 20, and the majority should be less than 10.
-4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~110 ms**. Assume each transaction will realize 20 unique services.
-5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be less than **~50 ms**.
+3. Please don't be panic for the 100 services first time resolution performance. Usually in a single transaction, it won't involve 100 unique services to work together. The max service in a single transaction should be around 20, and the majority should be less than 10.
+4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~100 ms**. Assume each transaction will realize 20 unique services.
+5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be **~30 ms**. Assume each transaction will realize 20 unique services.
 
 ## 2. Services
 
@@ -625,22 +625,24 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 
 Use this interface to register services into the container.
 
-| Methods                                                                                    | Description                                                                                             |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `DI.ServiceProvider buildServiceProvider()`                                                | Create `DI.ServiceProvider` with services registered into the container.                                |
-| **Transient**                                                                              |                                                                                                         |
-| `DI.ServiceCollection addTransient(String serviceTypeName)`                                | Register a transient type against its own type.                                                         |
-| `DI.ServiceCollection addTransient(String serviceTypeName, String implementationTypeName)` | Register a transient type against its descendent types.                                                 |
-| `DI.ServiceCollection addTransientFactory(String serviceTypeName, String factoryTypeName)` | Register a transient type against its factory type.                                                     |
-| **Scoped**                                                                                 |                                                                                                         |
-| `DI.ServiceCollection addScoped(String serviceTypeName)`                                   | Register a scoped type against its own type.                                                            |
-| `DI.ServiceCollection addScoped(String serviceTypeName, String implementationTypeName)`    | Register a scoped type against its descendent types.                                                    |
-| `DI.ServiceCollection addScopedFactory(String serviceTypeName, String factoryTypeName)`    | Register a scoped type against its factory type.                                                        |
-| **Singleton**                                                                              |                                                                                                         |
-| `DI.ServiceCollection addSingleton(String serviceTypeName)`                                | Register a singleton type against its own type.                                                         |
-| `DI.ServiceCollection addSingleton(String serviceTypeName, Object instance)`               | Register a singleton type against an instance of its own type or descendent types, i.e. a mock service. |
-| `DI.ServiceCollection addSingleton(String serviceTypeName, String implementationTypeName)` | Register a singleton type against its descendent types.                                                 |
-| `DI.ServiceCollection addSingletonFactory(String serviceTypeName, String factoryTypeName)` | Register a singleton type against its factory type.                                                     |
+| Methods                                                                                    | Description                                                                                                        |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `DI.ServiceProvider buildServiceProvider()`                                                | Create `DI.ServiceProvider` with services registered into the container.                                           |
+| **Transient**                                                                              |                                                                                                                    |
+| `DI.ServiceCollection addTransient(String serviceTypeName)`                                | Register a transient type against its own type.                                                                    |
+| `DI.ServiceCollection addTransient(String serviceTypeName, String implementationTypeName)` | Register a transient type against its descendent types.                                                            |
+| `DI.ServiceCollection addTransientFactory(String serviceTypeName, String factoryTypeName)` | Register a transient type against its factory type.                                                                |
+| `DI.ServiceCollection addTransient(String serviceTypeName, Object instance)`               | Register a transient type against an instance. **Note**: only use this in test class to register a mockup service. |
+| **Scoped**                                                                                 |                                                                                                                    |
+| `DI.ServiceCollection addScoped(String serviceTypeName)`                                   | Register a scoped type against its own type.                                                                       |
+| `DI.ServiceCollection addScoped(String serviceTypeName, String implementationTypeName)`    | Register a scoped type against its descendent types.                                                               |
+| `DI.ServiceCollection addScopedFactory(String serviceTypeName, String factoryTypeName)`    | Register a scoped type against its factory type.                                                                   |
+| `DI.ServiceCollection addScoped(String serviceTypeName, Object instance)`                  | Register a scoped type against an instance. **Note**: only use this in test class to register a mockup service.    |
+| **Singleton**                                                                              |                                                                                                                    |
+| `DI.ServiceCollection addSingleton(String serviceTypeName)`                                | Register a singleton type against its own type.                                                                    |
+| `DI.ServiceCollection addSingleton(String serviceTypeName, String implementationTypeName)` | Register a singleton type against its descendent types.                                                            |
+| `DI.ServiceCollection addSingletonFactory(String serviceTypeName, String factoryTypeName)` | Register a singleton type against its factory type.                                                                |
+| `DI.ServiceCollection addSingleton(String serviceTypeName, Object instance)`               | Register a singleton type against an instance, i.e. a constant value.                                              |
 
 ### 6.3 DI.ServiceProvider Interface
 

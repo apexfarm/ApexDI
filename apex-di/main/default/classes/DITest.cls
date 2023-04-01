@@ -100,6 +100,23 @@ public class DITest {
     }
 
     @IsTest
+    static void test_services_instances() {
+        DI.ServiceProvider provider = DI.services()
+            .addSingleton('DITest.TableLogger', new TableLogger())
+            .addScoped('DITest.EmailLogger', new EmailLogger())
+            .addTransient('DITest.AWSS3Logger', new AWSS3Logger())
+            .BuildServiceProvider();
+
+        ILogger tableLogger = (ILogger) provider.getService(TableLogger.class);
+        ILogger emailLogger = (ILogger) provider.getService(EmailLogger.class);
+        ILogger awss3Logger = (ILogger) provider.getService(AWSS3Logger.class);
+
+        Assert.isTrue(awss3Logger instanceof AWSS3Logger);
+        Assert.isTrue(emailLogger instanceof EmailLogger);
+        Assert.isTrue(tableLogger instanceof TableLogger);
+    }
+
+    @IsTest
     static void test_services_internal_serviceProvider() {
         DI.ServiceProvider providerA = DI.services()
             .addSingleton('DITest.IUtility', 'DITest.Utility')
@@ -544,6 +561,9 @@ public class DITest {
     public interface INoService {
     }
 
+    public interface INoFactory {
+    }
+
     public interface IWrongFactory {
     }
 
@@ -607,8 +627,10 @@ public class DITest {
     static void test_exceptions() {
         DI.ServiceProvider provider = DI.services()
             .addSingleton('DITest.GlobalConfiguration', new GlobalConfiguration())
+            .addSingleton('DITest.INoService', 'DITest.NoService')
             .addSingletonFactory('DITest.IWrongFactory', 'DITest.WrongFactory')
             .addSingletonFactory('DITest.ILogger', 'DITest.NullExceptionLoggerFactory')
+            .addSingletonFactory('DITest.INoFactory', 'DITest.NoFactory')
             .BuildServiceProvider();
 
         Exception exp;
@@ -619,7 +641,6 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
 
         exp = null;
         try {
@@ -629,7 +650,14 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
+
+        exp = null;
+        try {
+            provider.getService(INoFactory.class);
+        } catch (DI.DITypeException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
 
         exp = null;
         try {
@@ -638,7 +666,6 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
 
         exp = null;
         try {
@@ -647,7 +674,14 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
+
+        exp = null;
+        try {
+            provider.getService(INoService.class);
+        } catch (DI.DITypeException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
     }
 
     @IsTest
@@ -659,25 +693,6 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            DI.addModule(INoService.class, INoService.class);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
-
-        exp = null;
-        try {
-            DI.addModule(LogModule.class, INoService.class);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-        System.debug(exp);
 
         exp = null;
         try {
@@ -686,7 +701,6 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
 
         exp = null;
         try {
@@ -695,7 +709,6 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
 
         exp = null;
         try {
@@ -704,7 +717,6 @@ public class DITest {
             exp = ex;
         }
         Assert.isTrue(exp != null);
-        System.debug(exp);
     }
 
     public class ExceptionModule1 extends DI.Module {

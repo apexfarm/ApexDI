@@ -37,32 +37,16 @@ public with sharing class DI {
     }
 
     public static void addModule(String moduleTypeName, String newModuleTypeName) {
-        addModule(Type.forName(moduleTypeName), Type.forName(newModuleTypeName));
+        GLOBAL_MODULES.moduleReplacements.put(moduleTypeName.toUpperCase(), newModuleTypeName.toUpperCase());
+        GLOBAL_MODULES.addFactory(newModuleTypeName);
     }
 
     public static void addModule(Type moduleType, Type newModuleType) {
-        if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
-            throw new DIIllegalArgumentException(
-                'DI.addModule(module, newModule): module [' + moduleType + '] doesn\'t extend [DI.Module].'
-            );
-        }
-
-        if (newModuleType == null || !Module.class.isAssignableFrom(newModuleType)) {
-            throw new DIIllegalArgumentException(
-                'DI.addModule(module, newModule): newModule [' + newModuleType + '] doesn\'t extend [DI.Module].'
-            );
-        }
-        GLOBAL_MODULES.moduleReplacements.put(moduleType, newModuleType);
-        GLOBAL_MODULES.addFactory(newModuleType);
+        addModule(moduleType.getName(), newModuleType.getName());
     }
 
     public static Module getModule(Type moduleType) {
-        if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
-            throw new DIIllegalArgumentException(
-                'DI.getModule(Type moduleType): moduleType [' + moduleType + '] doesn\'t extend [DI.Module].'
-            );
-        }
-        return GLOBAL_MODULES.get(moduleType);
+        return GLOBAL_MODULES.get(moduleType.getName());
     }
 
     public static ServiceCollection services() {
@@ -74,87 +58,61 @@ public with sharing class DI {
     // Module system is provided for Salesforce to register and use services conveniently
 
     private class ModuleCollectionImpl extends Module implements ModuleCollection {
-        private Map<Type, Type> moduleReplacements;
-        private List<IServiceCollection> modules;
+        private Map<String, String> moduleReplacements;
+        private List<IServiceCollection> tempModules;
 
         private ModuleCollectionImpl() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors(), ModuleCollection.class.getName());
-            this.moduleReplacements = new Map<Type, Type>();
-            this.modules = new List<IServiceCollection>();
+            this.moduleReplacements = new Map<String, String>();
+            this.tempModules = new List<IServiceCollection>();
         }
 
         private IServiceCollection importedModules {
             get {
-                return this.modules[this.modules.size() - 1];
+                return this.tempModules[this.tempModules.size() - 1];
             }
         }
 
         private void addImportedModules() {
-            this.modules.add(new ServiceCollectionImpl());
+            this.tempModules.add(new ServiceCollectionImpl());
         }
 
         private IServiceCollection removeImportedModules() {
-            return this.modules.remove(this.modules.size() - 1);
+            return this.tempModules.remove(this.tempModules.size() - 1);
         }
 
-        private Module get(Type moduleType) {
-            if (this.moduleReplacements.containsKey(moduleType)) {
-                moduleType = this.moduleReplacements.get(moduleType);
+        private Module get(String moduleName) {
+            moduleName = moduleName.toUpperCase();
+            if (this.moduleReplacements.containsKey(moduleName)) {
+                moduleName = this.moduleReplacements.get(moduleName);
             }
 
-            Module module = (Module) this.provider.getService(moduleType);
+            Module module = (Module) this.provider.getService(moduleName);
             if (module == null) {
-                this.removeService(moduleType);
-                this.addFactory(moduleType);
+                this.removeService(moduleName);
+                this.addFactory(moduleName);
             }
-            return (Module) this.provider.getService(moduleType);
+            return (Module) this.provider.getService(moduleName);
         }
 
         // only for module registration
-        private void removeService(Type serviceType) {
-            String serviceName = serviceType.getName().toUpperCase();
+        private void removeService(String serviceName) {
             this.provider.callSiteFactory.callSiteCache.remove(serviceName);
             this.provider.realizedServices.remove(serviceName);
         }
 
-        private void addFactory(Type moduleType) {
-            this.services.addScopedFactory(moduleType.getName(), 'DI.ModuleFactory<' + moduleType + '>');
+        private void addFactory(String moduleName) {
+            this.services.addScopedFactory(moduleName, 'DI.ModuleFactory<' + moduleName + '>');
         }
 
         public ModuleCollection add(String moduleName) {
-            Type moduleType = Type.forName(moduleName);
-            if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ModuleCollection.add(String moduleName): moduleName [' +
-                        moduleName +
-                        '] doesn\'t extend [DI.Module].'
-                );
-            }
             this.importedModules.addScoped(moduleName);
             return this;
         }
 
         public ModuleCollection add(String moduleName, String newModuleName) {
-            Type moduleType = Type.forName(moduleName);
-            if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ModuleCollection.add(String moduleName, String newModuleName): moduleName [' +
-                        moduleName +
-                        '] doesn\'t extend [DI.Module].'
-                );
-            }
-
-            Type newModuleType = Type.forName(newModuleName);
-            if (newModuleType == null || !Module.class.isAssignableFrom(newModuleType)) {
-                throw new DIIllegalArgumentException(
-                    'DI.ModuleCollection.add(String moduleName, String newModuleName): newModuleName [' +
-                        newModuleName +
-                        '] doesn\'t extend [DI.Module].'
-                );
-            }
-            this.moduleReplacements.put(moduleType, newModuleType);
-            this.importedModules.addScoped(newModuleName, newModuleName);
+            this.importedModules.addScoped(moduleName, newModuleName);
             return this;
         }
 
@@ -164,20 +122,24 @@ public with sharing class DI {
 
     public class ModuleFactory implements DI.ServiceFactory {
         public Object newInstance(Type moduleType, ServiceProvider serviceProvider) {
-            ModuleCollectionImpl modules = GLOBAL_MODULES;
+            if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
+                throw new DITypeException('Module [' + moduleType + '] doesn\'t extend [DI.Module].');
+            }
 
+            ModuleCollectionImpl modules = GLOBAL_MODULES;
             Module module = (Module) moduleType.newInstance();
+
             module.services = new ServiceCollectionImpl();
             modules.addImportedModules();
             module.import(modules);
 
             for (ServiceDescriptor moduleDescriptor : modules.importedModules.getDescriptors().values()) {
-                Type importedModuleType = Type.forName(moduleDescriptor.serviceName);
-                Type importedNewModuleType = Type.forName(moduleDescriptor.implementationTypeName);
-                if (importedModuleType != importedNewModuleType) {
-                    modules.moduleReplacements.put(importedModuleType, importedNewModuleType);
+                String importedModuleName = moduleDescriptor.serviceName;
+                String importedNewModuleName = moduleDescriptor.implementationTypeName;
+                if (importedModuleName != importedNewModuleName) {
+                    modules.moduleReplacements.put(importedModuleName, importedNewModuleName);
                 }
-                Module importedModule = modules.get(importedModuleType);
+                Module importedModule = modules.get(importedModuleName);
                 module.services.addServices(importedModule.services);
             }
             modules.removeImportedModules();
@@ -227,14 +189,12 @@ public with sharing class DI {
 
     // ==========================
     // #region Service Collection
-    @TestVisible
     private enum ServiceLifetime {
         TransientLifeTime,
         SingletonLifeTime,
         ScopedLifeTime
     }
 
-    @TestVisible
     private class ServiceDescriptor {
         private String serviceName { get; private set; }
         private String implementationTypeName { get; private set; }
@@ -242,20 +202,17 @@ public with sharing class DI {
         private Object implementationInstance { get; private set; }
         private ServiceLifetime lifetime { get; private set; }
 
-        @TestVisible
         private ServiceDescriptor(String serviceName, String implementationTypeName, ServiceLifetime lifetime) {
             this.serviceName = serviceName.toUpperCase();
             this.implementationTypeName = implementationTypeName.toUpperCase();
             this.lifetime = lifetime;
         }
 
-        @TestVisible
         private ServiceDescriptor(String serviceName, ServiceLifetime lifetime) {
             this.serviceName = serviceName.toUpperCase();
             this.lifetime = lifetime;
         }
 
-        @TestVisible
         private ServiceDescriptor(
             String serviceName,
             String implementationTypeName,
@@ -300,6 +257,11 @@ public with sharing class DI {
             return this;
         }
 
+        public ServiceCollection addTransient(String serviceName, Object instance) {
+            this.addInstance(serviceName, instance, ServiceLifetime.TransientLifeTime);
+            return this;
+        }
+
         public ServiceCollection addScoped(String serviceName) {
             this.add(serviceName, serviceName, ServiceLifetime.ScopedLifeTime);
             return this;
@@ -315,7 +277,7 @@ public with sharing class DI {
             return this;
         }
 
-        private ServiceCollection addScoped(String serviceName, Object instance) {
+        public ServiceCollection addScoped(String serviceName, Object instance) {
             this.addInstance(serviceName, instance, ServiceLifetime.ScopedLifeTime);
             return this;
         }
@@ -391,7 +353,7 @@ public with sharing class DI {
     // =========================
     // #region Service Providers
 
-    private class ServiceProviderImpl implements ServiceProvider, ServiceProviderEngineCallback {
+    private class ServiceProviderImpl implements ServiceProvider {
         private ServiceProviderEngine engine { get; set; }
         protected Map<String, ServiceRealizationFunc> realizedServices { get; private set; }
         private ServiceProviderEngineScope root { get; set; }
@@ -433,12 +395,6 @@ public with sharing class DI {
             return this.getService(serviceName, this.root);
         }
 
-        public void onCreate(ServiceCallSite callSite) {
-        }
-
-        public void onResolve(String serviceType, ServiceScope scope) {
-        }
-
         private Object getService(String serviceName, ServiceProviderEngineScope scope) {
             serviceName = serviceName.replace(' ', '').toUpperCase(); // formalize service name
             ServiceRealizationFunc realizedService;
@@ -448,14 +404,12 @@ public with sharing class DI {
                 realizedService = createServiceAccessor(serviceName);
                 this.realizedServices.put(serviceName, realizedService);
             }
-            this.onResolve(serviceName, scope);
             return realizedService.invoke(scope);
         }
 
         private ServiceRealizationFunc createServiceAccessor(String serviceName) {
             ServiceCallSite callSite = this.callSiteFactory.getCallSite(serviceName);
             if (callSite != null) {
-                this.onCreate(callSite);
                 return this.engine.realizeService(callSite);
             }
 
@@ -746,6 +700,13 @@ public with sharing class DI {
             super(cache);
             this.serviceName = serviceName;
             this.implementationType = Type.forName(implementationTypeName);
+
+            if (this.implementationType == null) {
+                throw new DITypeException(
+                    'Implementation [' + implementationTypeName + '] doesn\'t exist for [' + serviceName + '].'
+                );
+            }
+
             this.kind = CallSiteKind.Constructor;
         }
     }
@@ -763,12 +724,19 @@ public with sharing class DI {
         ) {
             super(cache);
             Type factoryType = Type.forName(factoryTypeName);
+
+            if (factoryType == null) {
+                throw new DITypeException(
+                    'Factory [' + factoryTypeName + '] doesn\'t exist for [' + serviceName + '].'
+                );
+            }
+
             if (
                 !ServiceFactory.class.isAssignableFrom(factoryType) &&
                 !GenericServiceFactory.class.isAssignableFrom(factoryType)
             ) {
                 throw new DITypeException(
-                    'DI registered factory type [' +
+                    'Factory [' +
                         factoryType +
                         '] doesn\'t implement [DI.ServiceFactory] or [DI.GenericServiceFactory].'
                 );
@@ -895,6 +863,7 @@ public with sharing class DI {
         ServiceProvider buildServiceProvider();
 
         ServiceCollection addTransient(String serviceTypeName);
+        ServiceCollection addTransient(String serviceTypeName, Object instance);
         ServiceCollection addTransient(String serviceTypeName, String implementationTypeName);
         ServiceCollection addTransientFactory(String serviceTypeName, String factoryTypeName);
 
@@ -904,6 +873,7 @@ public with sharing class DI {
         ServiceCollection addSingletonFactory(String serviceTypeName, String factoryTypeName);
 
         ServiceCollection addScoped(String serviceName);
+        ServiceCollection addScoped(String serviceTypeName, Object instance);
         ServiceCollection addScoped(String serviceName, String implementationTypeName);
         ServiceCollection addScopedFactory(String serviceName, String factoryTypeName);
     }
@@ -924,11 +894,6 @@ public with sharing class DI {
 
     public interface ServiceScopeFactory {
         ServiceScope createScope();
-    }
-
-    private interface ServiceProviderEngineCallback {
-        void onCreate(ServiceCallSite callSite);
-        void onResolve(String serviceType, ServiceScope scope);
     }
 
     private interface ServiceRealizationFunc {
