@@ -139,7 +139,7 @@ Every service has a lifetime, the library defined three different widths and len
 2. **Scoped**: the same instance will be returned only when `getService()` of the same `DI.Module` or `DI.ServiceProvider` is invoked, and different instances will be returned from different modules and providers. Can also be understood as a singleton within a module or provider, but not across them.
 3. **Transient**: new instances will be created whenever `getService()` is invoked.
 
-The following code use `DI.ServiceProvider` to create service boundaries. [Modules](#4-modules) following the same lifetime mechanism, since they also implement `DI.ServiceProvider`. The benefit of a `DI.Module` is that, it can import services from other dependent modules.
+The following code use `DI.ServiceProvider` to create service boundaries. [Modules](#4-modules) following the same lifetime mechanism, since they also implement `DI.ServiceProvider`. The benefit of a `DI.Module` is that, it can import services from their dependent modules.
 
 ```java
 DI.ServiceProvider providerA = DI.services()
@@ -226,7 +226,7 @@ DI.ServiceProvider provider = DI.services()
     .addTransient('AccountService')
     .addTransient('AccountService', 'AccountService') // equivalent to above
     .addSingleton('Utility')
-    .addSingleton('Utility', 'Utility')   // equivalent to above
+    .addSingleton('Utility', 'Utility')               // equivalent to above
     .BuildServiceProvider();
 
 AccountService accountService = (AccountService) provider.getService(AccountService.class);
@@ -369,10 +369,11 @@ public class Logger implements ILogger {
     }
 }
 
-public class LoggerFactory implements DI.GenericServiceFactory { // declare generic service factory
+// declare generic service factory
+public class LoggerFactory implements DI.GenericServiceFactory {
     public ILogger newInstance(Type servcieType, List<String> genericTypes, DI.ServiceProvider provider) {
         // the second param genericTypes are upper case strings
-	    return new Logger((IWriter) provider.getService(genericTypes[0]));
+	return new Logger((IWriter) provider.getService(genericTypes[0]));
     }
 }
 
