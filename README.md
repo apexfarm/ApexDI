@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-2.2.2-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-2.2.3-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
 
 A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework ported from .Net Core. It can help:
 
@@ -13,8 +13,8 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
 
 | Environment           | Installation Link                                                                                                                                         | Version   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoGAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.2.2 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007CfoGAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.2.2 |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007Cg3JAAS"><img src="docs/images/deploy-button.png"></a> | ver 2.2.3 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04t2v000007Cg3JAAS"><img src="docs/images/deploy-button.png"></a>  | ver 2.2.3 |
 
 ---
 
@@ -371,9 +371,8 @@ public class Logger implements ILogger {
 
 // declare generic service factory
 public class LoggerFactory implements DI.GenericServiceFactory {
-    public ILogger newInstance(Type servcieType, List<String> genericTypes, DI.ServiceProvider provider) {
-        // the second param genericTypes are upper case strings
-	return new Logger((IWriter) provider.getService(genericTypes[0]));
+    public ILogger newInstance(Type servcieType, List<Type> parameterTypes, DI.ServiceProvider provider) {
+	return new Logger((IWriter) provider.getService(parameterTypes[0]));
     }
 }
 
@@ -387,6 +386,11 @@ DI.ServiceProvider provider = DI.services()
 ILogger emailLogger = (ILogger) provider.getService('ILogger<IEmailWriter>'); // "generic" service
 ILogger tableLogger = (ILogger) provider.getService('ILogger<ITableWriter>'); // "generic" service
 ILogger awss3Logger = (ILogger) provider.getService('ILogger<IAWSS3Writer>'); // "generic" service
+
+// equivalent to aboves, multiple .t().t().t() can be chained together
+ILogger emailLogger = (ILogger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class));
+ILogger tableLogger = (ILogger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class));
+ILogger awss3Logger = (ILogger) provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
 ```
 
 ## 4. Modules
@@ -621,6 +625,7 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 | `DI.ServiceCollection DI.services()`                         | Create an instance of `DI.ServiceCollection`.                                                                                                                              |
 | `DI.Module DI.getModule(Type moduleType)`                    | Create a singleton module with services registered. Use the `DI.ServiceProvider` interface to resolve them.                                                                |
 | `void DI.addModule(String moduleName, String newModuleName)` | Add a new `newModuleName` to replace the `moduleName` which is referenced somewhere later in the application. Mainly used in test classes, for runtime module replacement. |
+| `DI.Types DI.types()`                                        | Return a `DI.Types` instance , to be used in building types for generic services.                                                                                          |
 
 ### 6.2 DI.ServiceCollection Interface
 
@@ -662,9 +667,9 @@ Implement these interfaces to define factory classes to create services with con
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Object newInstance(Type serviceType, DI.ServiceProvider serviceProvider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Use `serviceType` in a condition to return polymorphism instances. |
 
-| DI.GenericServiceFactory Methods                                                                      | Description                                                                                                                            |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `Object newInstance(Type serviceType, List<String> genericTypes, DI.ServiceProvider serviceProvider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Generic types are supplied as upper case strings. |
+| DI.GenericServiceFactory Methods                                                                      | Description                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Object newInstance(Type serviceType, List<Type> parameterTypes, DI.ServiceProvider serviceProvider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Parameterized types are supplied as the second parameter. |
 
 ### 6.5 DI.Module Abstract Class
 

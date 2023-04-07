@@ -34,11 +34,18 @@ public class DITest {
             .addTransient('DITest.IAccountService', 'DITest.AccountService')
             .BuildServiceProvider();
 
+        // Singleton
         Assert.areNotEqual(null, providerA.getService(IUtility.class));
         Assert.areNotEqual(null, providerB.getService(IUtility.class));
         Assert.areEqual(providerA.getService(IUtility.class), providerA.getService(IUtility.class));
         Assert.areEqual(providerB.getService(IUtility.class), providerB.getService(IUtility.class));
         Assert.areEqual(providerA.getService(IUtility.class), providerB.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService('DITest.IUtility'));
+        Assert.areEqual(providerB.getService(IUtility.class), providerB.getService('DITest.IUtility'));
+        Assert.areEqual(providerA.getService(IUtility.class), providerB.getService('DITest.IUtility'));
+        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService(IUtility.class, null));
+        Assert.areEqual(providerB.getService(IUtility.class), providerB.getService(IUtility.class, null));
+        Assert.areEqual(providerA.getService(IUtility.class), providerB.getService(IUtility.class, null));
 
         Assert.areNotEqual(null, providerA.getService(ILogger.class));
         Assert.areNotEqual(null, providerB.getService(ILogger.class));
@@ -131,6 +138,12 @@ public class DITest {
         Assert.areEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class));
         Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService(ILogger.class));
         Assert.areNotEqual(providerB.getService(ILogger.class), providerC.getService(ILogger.class));
+        Assert.areEqual(providerA.getService(ILogger.class), providerB.getService('DITest.ILogger'));
+        Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService('DITest.ILogger'));
+        Assert.areNotEqual(providerB.getService(ILogger.class), providerC.getService('DITest.ILogger'));
+        Assert.areEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class, null));
+        Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService(ILogger.class, null));
+        Assert.areNotEqual(providerB.getService(ILogger.class), providerC.getService(ILogger.class, null));
     }
 
     public interface IUtility {
@@ -238,7 +251,7 @@ public class DITest {
     }
 
     @IsTest
-    static void test_factories_generic_services() {
+    static void test_factories_generic_services_1() {
         DI.ServiceProvider provider = DI.services()
             .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
@@ -258,8 +271,72 @@ public class DITest {
         Assert.areEqual(awss3Logger, provider.getService('DITest.ILogger<DITest.IAWSS3Writer>'));
     }
 
+    @IsTest
+    static void test_factories_generic_services_2() {
+        DI.ServiceProvider provider = DI.services()
+            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
+            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
+            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
+            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
+            .BuildServiceProvider();
+
+        Logger emailLogger = (Logger) provider.getService('DITest.ILogger<DITest.IEmailWriter, DITest.INoService>');
+        Logger tableLogger = (Logger) provider.getService('DITest.ILogger<DITest.ITableWriter, DITest.INoService>');
+        Logger awss3Logger = (Logger) provider.getService('DITest.ILogger<DITest.IAWSS3Writer, DITest.INoService>');
+
+        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
+        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
+        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
+        Assert.areEqual(emailLogger, provider.getService('DITest.ILogger<DITest.IEmailWriter, DITest.INoService>'));
+        Assert.areEqual(tableLogger, provider.getService('DITest.ILogger<DITest.ITableWriter, DITest.INoService>'));
+        Assert.areEqual(awss3Logger, provider.getService('DITest.ILogger<DITest.IAWSS3Writer, DITest.INoService>'));
+    }
+
+    @IsTest
+    // prettier-ignore
+    static void test_factories_generic_services_3() {
+        DI.ServiceProvider provider = DI.services()
+            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
+            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
+            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
+            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
+            .BuildServiceProvider();
+
+        Logger emailLogger = (Logger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class));
+        Logger tableLogger = (Logger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class));
+        Logger awss3Logger = (Logger) provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
+
+        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
+        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
+        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
+        Assert.areEqual(emailLogger, provider.getService(ILogger.class, DI.types().t(IEmailWriter.class)));
+        Assert.areEqual(tableLogger, provider.getService(ILogger.class, DI.types().t(ITableWriter.class)));
+        Assert.areEqual(awss3Logger, provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class)));
+    }
+
+    @IsTest
+    // prettier-ignore
+    static void test_factories_generic_services_4() {
+        DI.ServiceProvider provider = DI.services()
+            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
+            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
+            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
+            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
+            .BuildServiceProvider();
+
+        Logger emailLogger = (Logger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class).t(INoService.class));
+        Logger tableLogger = (Logger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class).t(INoService.class));
+        Logger awss3Logger = (Logger) provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class).t(INoService.class));
+
+        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
+        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
+        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
+        Assert.areEqual(emailLogger, provider.getService(ILogger.class, DI.types().t(IEmailWriter.class).t(INoService.class)));
+        Assert.areEqual(tableLogger, provider.getService(ILogger.class, DI.types().t(ITableWriter.class).t(INoService.class)));
+        Assert.areEqual(awss3Logger, provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class).t(INoService.class)));
+    }
+
     // ! Comment out before release, so no dependencies to standard SObjects such as Account and Contact!
-    // TODO: Comment out before release, so no dependencies to standard SObjects such as Account and Contact!
     // @IsTest
     // static void test_factories_generic_services_sobjects() {
     //     DI.ServiceProvider provider = DI.services()
@@ -348,8 +425,8 @@ public class DITest {
     }
 
     public class GenericLoggerFactory implements DI.GenericServiceFactory {
-        public ILogger newInstance(Type servcieType, List<String> genericTypes, DI.ServiceProvider provider) {
-            return new Logger((IWriter) provider.getService(genericTypes[0]));
+        public ILogger newInstance(Type servcieType, List<Type> parameterTypes, DI.ServiceProvider provider) {
+            return new Logger((IWriter) provider.getService(parameterTypes[0]));
         }
     }
 
@@ -365,10 +442,10 @@ public class DITest {
     }
 
     public class RepositoryFactory implements DI.GenericServiceFactory {
-        public IRepository newInstance(Type servcieType, List<String> genericTypes, DI.ServiceProvider provider) {
+        public IRepository newInstance(Type servcieType, List<Type> parameterTypes, DI.ServiceProvider provider) {
             List<SObjectType> sobjectTypes = new List<SObjectType>();
-            for (String typeName : genericTypes) {
-                sobjectTypes.add(((SObject) Type.forName(typeName).newInstance()).getSObjectType());
+            for (Type parameterType : parameterTypes) {
+                sobjectTypes.add(((SObject) parameterType.newInstance()).getSObjectType());
             }
 
             return new Repository(sobjectTypes);
@@ -456,6 +533,22 @@ public class DITest {
         Assert.areEqual(emailLogger, moduleD.getService('DITest.ILogger<DITest.IEmailWriter>'));
         Assert.areEqual(tableLogger, moduleD.getService('DITest.ILogger<DITest.ITableWriter>'));
         Assert.areEqual(awss3Logger, moduleD.getService('DITest.ILogger<DITest.IAWSS3Writer>'));
+    }
+
+    @IsTest
+    static void test_modules_generic_services_v2() {
+        DI.Module moduleD = DI.getModule(ModuleD.class);
+
+        Logger emailLogger = (Logger) moduleD.getService(ILogger.class, DI.types().t(IEmailWriter.class));
+        Logger tableLogger = (Logger) moduleD.getService(ILogger.class, DI.types().t(ITableWriter.class));
+        Logger awss3Logger = (Logger) moduleD.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
+
+        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
+        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
+        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
+        Assert.areEqual(emailLogger, moduleD.getService(ILogger.class, DI.types().t(IEmailWriter.class)));
+        Assert.areEqual(tableLogger, moduleD.getService(ILogger.class, DI.types().t(ITableWriter.class)));
+        Assert.areEqual(awss3Logger, moduleD.getService(ILogger.class, DI.types().t(IAWSS3Writer.class)));
     }
 
     public class Module1 extends DI.Module {
@@ -581,7 +674,15 @@ public class DITest {
                 exp = ex;
             }
             Assert.isTrue(exp != null);
-            System.debug(exp);
+
+            exp = null;
+            try {
+                Type noType = null;
+                provider.getService(noType, null);
+            } catch (DI.DIIllegalArgumentException ex) {
+                exp = ex;
+            }
+            Assert.isTrue(exp != null);
 
             exp = null;
             try {
@@ -591,7 +692,6 @@ public class DITest {
                 exp = ex;
             }
             Assert.isTrue(exp != null);
-            System.debug(exp);
 
             throw new NullPointerException();
         }
@@ -637,6 +737,15 @@ public class DITest {
         try {
             Type noType = null;
             provider.getService(noType);
+        } catch (DI.DIIllegalArgumentException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
+
+        exp = null;
+        try {
+            Type noType = null;
+            provider.getService(noType, null);
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
