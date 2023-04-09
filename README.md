@@ -110,11 +110,13 @@ The performance benchmark are averages of three samples carried under DEBUG debu
 
 ### 1.2 Performance Consideration
 
+<p align="center"><img src="./docs/images/benchmark.png" width=700 alt="Performance Benchmark"></p>
+
 1. Feel free to use interfaces and abstractions for service registration and resolution, this is a best practice. They have no impact to the performance, and are excluded in the count of above 100 services.
-2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is fast.
-3. Please don't be panic for the 100 services first time resolution performance. Usually in a single transaction, it won't involve 100 unique services to work together. The max service in a single transaction should be around 20, and the majority should be less than 10.
+2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is faster.
+3. Please don't be panic for the 100 services first time resolution performance. In a single transaction, it will definitely not involve 100 unique services to work together. In most of the transactions, the reasonable number of services required should be within the above **Common Range** (1~20), and the majority should be less than 10.
 4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~100 ms**. Assume each transaction will realize 20 unique services.
-5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be **~30 ms**. Assume each transaction will realize 20 unique services.
+5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be **<30 ms**. Assume each transaction will realize 20 unique services.
 
 ## 2. Services
 
