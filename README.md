@@ -110,7 +110,7 @@ The performance benchmark are averages of three samples carried under DEBUG debu
 
 ### 1.2 Performance Consideration
 
-<p align="center"><img src="./docs/images/benchmark.png" width=700 alt="Performance Benchmark"></p>
+<p align="center"><img src="./docs/images/benchmark.png" width=600 alt="Performance Benchmark"></p>
 
 1. Feel free to use interfaces and abstractions for service registration and resolution, this is a best practice. They have no impact to the performance, and are excluded in the count of above 100 services.
 2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is faster.
