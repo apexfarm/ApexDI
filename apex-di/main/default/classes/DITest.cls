@@ -118,13 +118,13 @@ public class DITest {
         ILogger emailLogger = (ILogger) provider.getService(EmailLogger.class);
         ILogger awss3Logger = (ILogger) provider.getService(AWSS3Logger.class);
 
-        Assert.isTrue(awss3Logger instanceof AWSS3Logger);
-        Assert.isTrue(emailLogger instanceof EmailLogger);
         Assert.isTrue(tableLogger instanceof TableLogger);
+        Assert.isTrue(emailLogger instanceof EmailLogger);
+        Assert.isTrue(awss3Logger instanceof AWSS3Logger);
     }
 
     @IsTest
-    static void test_services_internal_serviceProvider() {
+    static void test_serviceProvider() {
         DI.ServiceProvider providerA = DI.services()
             .addSingleton('DITest.IUtility', 'DITest.Utility')
             .addScoped('DITest.ILogger', 'DITest.TableLogger')
@@ -144,6 +144,56 @@ public class DITest {
         Assert.areEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class, null));
         Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService(ILogger.class, null));
         Assert.areNotEqual(providerB.getService(ILogger.class), providerC.getService(ILogger.class, null));
+    }
+
+    @IsTest
+    static void test_serviceProvider_generics1() {
+        DI.ServiceProvider providerA = DI.services()
+            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
+            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
+            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
+            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
+            .BuildServiceProvider();
+
+        DI.ServiceProvider providerB = (DI.ServiceProvider) providerA.getService(DI.ServiceProvider.class);
+
+        DI.ServiceProvider providerC = ((DI.ServiceScopeFactory) providerB).createScope().getServiceProvider();
+
+        Logger emailLogger = (Logger) providerC.getService('DITest.ILogger<DITest.IEmailWriter>');
+        Logger tableLogger = (Logger) providerC.getService('DITest.ILogger<DITest.ITableWriter>');
+        Logger awss3Logger = (Logger) providerC.getService('DITest.ILogger<DITest.IAWSS3Writer>');
+
+        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
+        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
+        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
+        Assert.areEqual(emailLogger, providerC.getService('DITest.ILogger<DITest.IEmailWriter>'));
+        Assert.areEqual(tableLogger, providerC.getService('DITest.ILogger<DITest.ITableWriter>'));
+        Assert.areEqual(awss3Logger, providerC.getService('DITest.ILogger<DITest.IAWSS3Writer>'));
+    }
+
+    @IsTest
+    static void test_serviceProvider_generics2() {
+        DI.ServiceProvider providerA = DI.services()
+            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
+            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
+            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
+            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
+            .BuildServiceProvider();
+
+        DI.ServiceProvider providerB = (DI.ServiceProvider) providerA.getService(DI.ServiceProvider.class);
+
+        DI.ServiceProvider providerC = ((DI.ServiceScopeFactory) providerB).createScope().getServiceProvider();
+
+        Logger emailLogger = (Logger) providerC.getService(ILogger.class, DI.types().t(IEmailWriter.class));
+        Logger tableLogger = (Logger) providerC.getService(ILogger.class, DI.types().t(ITableWriter.class));
+        Logger awss3Logger = (Logger) providerC.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
+
+        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
+        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
+        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
+        Assert.areEqual(emailLogger, providerC.getService(ILogger.class, DI.types().t(IEmailWriter.class)));
+        Assert.areEqual(tableLogger, providerC.getService(ILogger.class, DI.types().t(ITableWriter.class)));
+        Assert.areEqual(awss3Logger, providerC.getService(ILogger.class, DI.types().t(IAWSS3Writer.class)));
     }
 
     public interface IUtility {

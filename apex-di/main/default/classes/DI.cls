@@ -226,34 +226,71 @@ public with sharing class DI {
         ScopedLifeTime
     }
 
-    private class ServiceDescriptor {
+    private abstract class ServiceDescriptor {
         private String serviceName { get; private set; }
         private String implementationTypeName { get; private set; }
-        private String implementationFactoryTypeName { get; private set; }
-        private Object implementationInstance { get; private set; }
         private ServiceLifetime lifetime { get; private set; }
 
-        private ServiceDescriptor(String serviceName, String implementationTypeName, ServiceLifetime lifetime) {
-            this.serviceName = serviceName.toUpperCase();
-            this.implementationTypeName = implementationTypeName.toUpperCase();
-            this.lifetime = lifetime;
-        }
+        private abstract ServiceCallSite createCallSite(ResultCache cache);
+    }
 
-        private ServiceDescriptor(String serviceName, ServiceLifetime lifetime) {
-            this.serviceName = serviceName.toUpperCase();
-            this.lifetime = lifetime;
-        }
-
-        private ServiceDescriptor(
+    private class ConstructorServiceDescriptor extends ServiceDescriptor {
+        private ConstructorServiceDescriptor(
             String serviceName,
             String implementationTypeName,
-            String factoryTypeName,
             ServiceLifetime lifetime
         ) {
             this.serviceName = serviceName.toUpperCase();
             this.implementationTypeName = implementationTypeName.toUpperCase();
+            this.lifetime = lifetime;
+        }
+
+        private override ServiceCallSite createCallSite(ResultCache cache) {
+            return new ConstructorCallSite(cache, this.serviceName, this.implementationTypeName);
+        }
+    }
+
+    private class FactoryServiceDescriptor extends ServiceDescriptor {
+        private String implementationTypeName { get; private set; }
+        private String implementationFactoryTypeName { get; private set; }
+
+        private FactoryServiceDescriptor(String serviceName, String factoryName, ServiceLifetime lifetime) {
+            String factoryTypeName = factoryName;
+            String implementationTypeName = serviceName;
+            if (factoryName.endsWith('>')) {
+                String[] names = factoryName.split('<');
+                factoryTypeName = names[0];
+                implementationTypeName = names[1].replace('>', '');
+            }
+
+            this.serviceName = serviceName.toUpperCase();
+            this.implementationTypeName = implementationTypeName.toUpperCase();
             this.implementationFactoryTypeName = factoryTypeName.toUpperCase();
             this.lifetime = lifetime;
+        }
+
+        private override ServiceCallSite createCallSite(ResultCache cache) {
+            return new FactoryCallSite(
+                cache,
+                this.serviceName,
+                cache.key.parameterTypes,
+                this.implementationTypeName,
+                this.implementationFactoryTypeName
+            );
+        }
+    }
+
+    private class ConstantServiceDescriptor extends ServiceDescriptor {
+        private Object implementationInstance { get; private set; }
+
+        private ConstantServiceDescriptor(String serviceName, Object instance, ServiceLifetime lifetime) {
+            this.serviceName = serviceName.toUpperCase();
+            this.implementationInstance = instance;
+            this.lifetime = lifetime;
+        }
+
+        private override ServiceCallSite createCallSite(ResultCache cache) {
+            return new ConstantCallSite(this.serviceName, this.implementationInstance);
         }
     }
 
@@ -274,108 +311,132 @@ public with sharing class DI {
         }
 
         public ServiceCollection addTransient(String serviceName) {
-            this.add(serviceName, serviceName, ServiceLifetime.TransientLifeTime);
+            ServiceDescriptor descriptor = new ConstructorServiceDescriptor(
+                serviceName,
+                serviceName,
+                ServiceLifetime.TransientLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addTransient(String serviceName, String implementationTypeName) {
-            this.add(serviceName, implementationTypeName, ServiceLifetime.TransientLifeTime);
+            ServiceDescriptor descriptor = new ConstructorServiceDescriptor(
+                serviceName,
+                implementationTypeName,
+                ServiceLifetime.TransientLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addTransientFactory(String serviceName, String factoryTypeName) {
-            this.addFactory(serviceName, factoryTypeName, ServiceLifetime.TransientLifeTime);
+            ServiceDescriptor descriptor = new FactoryServiceDescriptor(
+                serviceName,
+                factoryTypeName,
+                ServiceLifetime.TransientLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addTransient(String serviceName, Object instance) {
-            this.addInstance(serviceName, instance, ServiceLifetime.TransientLifeTime);
+            ServiceDescriptor descriptor = new ConstantServiceDescriptor(
+                serviceName,
+                instance,
+                ServiceLifetime.TransientLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addScoped(String serviceName) {
-            this.add(serviceName, serviceName, ServiceLifetime.ScopedLifeTime);
+            ServiceDescriptor descriptor = new ConstructorServiceDescriptor(
+                serviceName,
+                serviceName,
+                ServiceLifetime.ScopedLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addScoped(String serviceName, String implementationTypeName) {
-            this.add(serviceName, implementationTypeName, ServiceLifetime.ScopedLifeTime);
+            ServiceDescriptor descriptor = new ConstructorServiceDescriptor(
+                serviceName,
+                implementationTypeName,
+                ServiceLifetime.ScopedLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addScopedFactory(String serviceName, String factoryTypeName) {
-            this.addFactory(serviceName, factoryTypeName, ServiceLifetime.ScopedLifeTime);
+            ServiceDescriptor descriptor = new FactoryServiceDescriptor(
+                serviceName,
+                factoryTypeName,
+                ServiceLifetime.ScopedLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addScoped(String serviceName, Object instance) {
-            this.addInstance(serviceName, instance, ServiceLifetime.ScopedLifeTime);
+            ServiceDescriptor descriptor = new ConstantServiceDescriptor(
+                serviceName,
+                instance,
+                ServiceLifetime.ScopedLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
             return this;
         }
 
         public ServiceCollection addSingleton(String serviceName) {
-            this.add(serviceName, serviceName, ServiceLifetime.SingletonLifeTime);
+            ServiceDescriptor descriptor = new ConstructorServiceDescriptor(
+                serviceName,
+                serviceName,
+                ServiceLifetime.SingletonLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            ROOT_MODULE.add(descriptor);
             return this;
         }
 
         public ServiceCollection addSingleton(String serviceName, String implementationTypeName) {
-            this.add(serviceName, implementationTypeName, ServiceLifetime.SingletonLifeTime);
+            ServiceDescriptor descriptor = new ConstructorServiceDescriptor(
+                serviceName,
+                implementationTypeName,
+                ServiceLifetime.SingletonLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            ROOT_MODULE.add(descriptor);
             return this;
         }
 
         public ServiceCollection addSingletonFactory(String serviceName, String factoryTypeName) {
-            this.addFactory(serviceName, factoryTypeName, ServiceLifetime.SingletonLifeTime);
+            ServiceDescriptor descriptor = new FactoryServiceDescriptor(
+                serviceName,
+                factoryTypeName,
+                ServiceLifetime.SingletonLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            ROOT_MODULE.add(descriptor);
             return this;
         }
 
         public ServiceCollection addSingleton(String serviceName, Object instance) {
-            this.addInstance(serviceName, instance, ServiceLifetime.SingletonLifeTime);
+            ServiceDescriptor descriptor = new ConstantServiceDescriptor(
+                serviceName,
+                instance,
+                ServiceLifetime.SingletonLifeTime
+            );
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            ROOT_MODULE.add(descriptor);
             return this;
         }
 
         public ServiceCollection addServices(IServiceCollection services) {
             this.serviceDescriptors.putAll(services.getDescriptors());
             return this;
-        }
-
-        private ServiceDescriptor add(String serviceName, String implementationTypeName, ServiceLifetime lifetime) {
-            ServiceDescriptor descriptor = new ServiceDescriptor(serviceName, implementationTypeName, lifetime);
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            if (lifetime == ServiceLifetime.SingletonLifeTime) {
-                ROOT_MODULE.add(descriptor);
-            }
-            return descriptor;
-        }
-
-        private ServiceDescriptor addInstance(String serviceName, Object instance, ServiceLifetime lifetime) {
-            ServiceDescriptor descriptor = new ServiceDescriptor(serviceName, lifetime);
-            descriptor.implementationInstance = instance;
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            if (lifetime == ServiceLifetime.SingletonLifeTime) {
-                ROOT_MODULE.add(descriptor);
-            }
-            return descriptor;
-        }
-
-        private ServiceDescriptor addFactory(String serviceName, String factoryName, ServiceLifetime lifetime) {
-            String factoryTypeName = factoryName;
-            String implementationTypeName = serviceName;
-            if (factoryName.endsWith('>')) {
-                String[] names = factoryName.split('<');
-                factoryTypeName = names[0];
-                implementationTypeName = names[1].replace('>', '');
-            }
-            ServiceDescriptor descriptor = new ServiceDescriptor(
-                serviceName,
-                implementationTypeName,
-                factoryTypeName,
-                lifetime
-            );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            if (lifetime == ServiceLifetime.SingletonLifeTime) {
-                ROOT_MODULE.add(descriptor);
-            }
-            return descriptor;
         }
     }
     // #endregion
@@ -412,7 +473,7 @@ public with sharing class DI {
                 throw new DIIllegalArgumentException('getService(Type serviceType): serviceType cannot be null.');
             }
 
-            return this.getService(serviceType.getName(), null, this.root);
+            return getService(serviceType.getName(), null, this.root);
         }
 
         public Object getService(Type serviceType, Types parameterTypes) {
@@ -422,6 +483,10 @@ public with sharing class DI {
                 );
             }
 
+            return getService(getFullServiceName(serviceType, parameterTypes), parameterTypes, this.root);
+        }
+
+        private String getFullServiceName(Type serviceType, Types parameterTypes) {
             String serviceName = serviceType.getName();
             if (parameterTypes != null && !parameterTypes.types.isEmpty()) {
                 serviceName += '<';
@@ -436,19 +501,18 @@ public with sharing class DI {
                 }
                 serviceName += '>';
             }
-            System.debug(serviceName);
-            return this.getService(serviceName, parameterTypes, this.root);
+            return serviceName;
         }
 
         public Object getService(String serviceName) {
             if (String.isBlank(serviceName)) {
                 throw new DIIllegalArgumentException('getService(String serviceName): serviceName cannot be blank.');
             }
-            return this.getService(serviceName, null, this.root);
+            return this.getService(serviceName.replace(' ', ''), null, this.root);
         }
 
         private Object getService(String serviceName, Types parameterTypes, ServiceProviderEngineScope scope) {
-            serviceName = serviceName.replace(' ', '').toUpperCase(); // formalize service name
+            serviceName = serviceName.toUpperCase(); // formalize service name
             ServiceRealizationFunc realizedService;
             if (this.realizedServices.containsKey(serviceName)) {
                 realizedService = this.realizedServices.get(serviceName);
@@ -501,14 +565,18 @@ public with sharing class DI {
                     'getService(Type serviceType, Types parameterTypes): serviceType cannot be null.'
                 );
             }
-            return this.rootProvider.getService(serviceType.getName(), parameterTypes, this);
+            return this.rootProvider.getService(
+                this.rootProvider.getFullServiceName(serviceType, parameterTypes),
+                parameterTypes,
+                this
+            );
         }
 
         public Object getService(String serviceName) {
             if (String.isBlank(serviceName)) {
                 throw new DIIllegalArgumentException('getService(String serviceName): serviceName cannot be blank.');
             }
-            return this.rootProvider.getService(serviceName, null, this);
+            return this.rootProvider.getService(serviceName.replace(' ', ''), null, this);
         }
 
         public ServiceScope createScope() {
@@ -564,16 +632,6 @@ public with sharing class DI {
         }
 
         protected override Object visitRootCache(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
-            // ServiceProviderEngineScope rootScope = scope;
-            // if (!scope.isRootScope) {
-            //     rootScope = scope.rootProvider.root;
-            // }
-            // Map<ServiceCacheKey, Object> resolvedServices = rootScope.resolvedServices;
-            // if (!resolvedServices.containsKey(callSite.cache.key)) {
-            //     resolvedServices.put(callSite.cache.key, visitCallSiteMain(callSite, rootScope));
-            // }
-            // return resolvedServices.get(callSite.cache.key);
-
             Map<ServiceCacheKey, Object> resolvedServices = this.rootScope.resolvedServices;
             if (!resolvedServices.containsKey(callSite.cache.key)) {
                 resolvedServices.put(callSite.cache.key, visitCallSiteMain(callSite, this.rootScope));
@@ -612,28 +670,7 @@ public with sharing class DI {
         }
 
         protected virtual Object visitCallSiteMain(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
-            switch on callSite.kind {
-                when Factory {
-                    FactoryCallSite factoryCallSite = (FactoryCallSite) callSite;
-                    IServiceFactory factory = factoryCallSite.factory;
-                    if (factory instanceof ServiceFactory) {
-                        return ((ServiceFactory) factory).newInstance(callSite.implementationType, scope);
-                    } else if (factory instanceof GenericServiceFactory) {
-                        return ((GenericServiceFactory) factory)
-                            .newInstance(callSite.implementationType, factoryCallSite.parameterTypes, scope);
-                    }
-                }
-                when Constructor {
-                    return ((ConstructorCallSite) callSite).implementationType.newInstance();
-                }
-                when Constant {
-                    return ((ConstantCallSite) callSite).defaultValue;
-                }
-                when ServiceProvider {
-                    return scope;
-                }
-            }
-            throw new NoSuchElementException();
+            return callSite.createInstance(scope);
         }
 
         protected virtual Object visitNoCache(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
@@ -697,28 +734,12 @@ public with sharing class DI {
             String serviceName,
             List<Type> parameterTypes
         ) {
-            ServiceCallSite callSite;
-
             if (descriptor != null) {
-                ResultCache cache = new ResultCache(descriptor.Lifetime, serviceName, parameterTypes);
-                if (descriptor.implementationInstance != null) {
-                    callSite = new ConstantCallSite(serviceName, descriptor.implementationInstance);
-                } else if (descriptor.implementationFactoryTypeName != null) {
-                    callSite = new FactoryCallSite(
-                        cache,
-                        serviceName,
-                        parameterTypes,
-                        descriptor.implementationTypeName,
-                        descriptor.implementationFactoryTypeName
-                    );
-                } else if (descriptor.implementationTypeName != null) {
-                    callSite = new ConstructorCallSite(cache, serviceName, descriptor.implementationTypeName);
-                } else {
-                    throw new NoSuchElementException();
-                }
+                ResultCache cache = new ResultCache(descriptor.lifetime, serviceName, parameterTypes);
+                return descriptor.createCallSite(cache);
             }
 
-            return callSite;
+            return null;
         }
     }
 
@@ -748,6 +769,8 @@ public with sharing class DI {
         private ServiceCallSite(ResultCache cache) {
             this.cache = cache;
         }
+
+        private abstract Object createInstance(ServiceProviderEngineScope scope);
     }
 
     private class ConstructorCallSite extends ServiceCallSite {
@@ -763,6 +786,10 @@ public with sharing class DI {
             }
 
             this.kind = CallSiteKind.Constructor;
+        }
+
+        private override Object createInstance(ServiceProviderEngineScope scope) {
+            return this.implementationType.newInstance();
         }
     }
 
@@ -803,6 +830,16 @@ public with sharing class DI {
             this.factory = (IServiceFactory) factoryType.newInstance();
             this.kind = CallSiteKind.Factory;
         }
+
+        private override Object createInstance(ServiceProviderEngineScope scope) {
+            if (this.factory instanceof ServiceFactory) {
+                return ((ServiceFactory) this.factory).newInstance(this.implementationType, scope);
+            } else if (this.factory instanceof GenericServiceFactory) {
+                return ((GenericServiceFactory) this.factory)
+                    .newInstance(this.implementationType, this.parameterTypes, scope);
+            }
+            throw new NoSuchElementException();
+        }
     }
 
     private class ConstantCallSite extends ServiceCallSite {
@@ -814,6 +851,10 @@ public with sharing class DI {
             this.defaultValue = defaultValue;
             this.kind = CallSiteKind.Constant;
         }
+
+        private override Object createInstance(ServiceProviderEngineScope scope) {
+            return this.defaultValue;
+        }
     }
 
     private class ServiceProviderCallSite extends ServiceCallSite {
@@ -822,6 +863,10 @@ public with sharing class DI {
             this.serviceName = ServiceProvider.class.getName().toUpperCase();
             this.implementationType = ServiceProviderImpl.class;
             this.kind = CallSiteKind.ServiceProvider;
+        }
+
+        private override Object createInstance(ServiceProviderEngineScope scope) {
+            return scope;
         }
     }
 
