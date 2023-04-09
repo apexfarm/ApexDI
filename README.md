@@ -116,7 +116,7 @@ The performance benchmark are averages of three samples carried under DEBUG debu
 2. Please do not hesitate to use transient lifetime when appropriate. The time spent for its first time realization is the same as singletons. And once a service type is realized, it will be reused for their subsequent realizations, which is faster.
 3. Please don't be panic for the 100 services first time resolution performance. In a single transaction, it will definitely not involve 100 unique services to work together. In most of the transactions, the reasonable number of services required should be within the above **Common Range** (1~20), and the majority should be less than 10.
 4. For a project with 1K services registered in a single module, the average warmup time for each transaction should be **~100 ms**. Assume each transaction will realize 20 unique services.
-5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be **<30 ms**. Assume each transaction will realize 20 unique services.
+5. However It is strongly recommended to use modules to limit the number of registered services below 100, including services inside dependent modules. The warmup time for each transaction should be **~20 ms**. Assume each transaction will realize 20 unique services.
 
 ## 2. Services
 
