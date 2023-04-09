@@ -106,7 +106,7 @@ The performance benchmark are averages of three samples carried under DEBUG debu
 |               | 1. Register 100 Service Types | 2. Resolve 100 Services 1st Time | 3. Resolve 100 Services 2nd Time | 4. New 100 Services |
 | ------------- | ----------------------------- | -------------------------------- | -------------------------------- | ------------------- |
 | **Time (ms)** | ~7                            | ~70                              | ~19                              | 1                   |
-| **CPU Time**  | ~7                            | ~57                              | ~19                              | 0                   |
+| **CPU Time**  | ~7                            | ~50                              | ~19                              | 0                   |
 
 ### 1.2 Performance Consideration
 
