@@ -436,7 +436,7 @@ public class SalesModule extends DI.Module {
 }
 ```
 
-<p><img src="./docs/images/module-resolve-order.png#2023-3-15" align="right" width="250" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order, same as services registered with multiple implementations. For example on the diagram, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
+<p><img src="./docs/images/module-resolve-order.png#2023-3-15" align="right" width="200" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order, same as services registered with multiple implementations. For example on the diagram, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
 </p>
 
 ```java
