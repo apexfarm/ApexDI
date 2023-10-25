@@ -26,13 +26,13 @@ public class DITest {
             .addSingleton('DITest.IUtility', 'DITest.Utility')
             .addScoped('DITest.ILogger', 'DITest.TableLogger')
             .addTransient('DITest.IAccountService', 'DITest.AccountService')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         DI.ServiceProvider providerB = DI.services()
             .addSingleton('DITest.IUtility', 'DITest.Utility')
             .addScoped('DITest.ILogger', 'DITest.TableLogger')
             .addTransient('DITest.IAccountService', 'DITest.AccountService')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         // Singleton
         Assert.areNotEqual(null, providerA.getService(IUtility.class));
@@ -65,7 +65,7 @@ public class DITest {
         // Provider A
         DI.ServiceProvider providerA = DI.services()
             .addSingleton('DITest.IUtility', 'DITest.Utility')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         IUtility util = (IUtility) providerA.getService(IUtility.class);
         Assert.isTrue(util instanceof Utility);
@@ -73,7 +73,7 @@ public class DITest {
         // Provider B
         DI.ServiceProvider providerB = DI.services()
             .addSingleton('DITest.IUtility', 'DITest.AnotherUtility')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         IUtility anotherUtil = (IUtility) providerB.getService(IUtility.class);
         Assert.isFalse(anotherUtil instanceof AnotherUtility);
@@ -82,7 +82,7 @@ public class DITest {
         // Provider C
         DI.ServiceProvider providerC = DI.services()
             .addScoped('DITest.IUtility', 'DITest.AnotherUtility')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         IUtility anotherUtil2 = (IUtility) providerC.getService(IUtility.class);
         Assert.isTrue(anotherUtil2 instanceof AnotherUtility);
@@ -95,7 +95,7 @@ public class DITest {
             .addSingleton('DITest.TableLogger')
             .addScoped('DITest.EmailLogger')
             .addTransient('DITest.AWSS3Logger')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         ILogger tableLogger = (ILogger) provider.getService(TableLogger.class);
         ILogger emailLogger = (ILogger) provider.getService(EmailLogger.class);
@@ -112,7 +112,7 @@ public class DITest {
             .addSingleton('DITest.TableLogger', new TableLogger())
             .addScoped('DITest.EmailLogger', new EmailLogger())
             .addTransient('DITest.AWSS3Logger', new AWSS3Logger())
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         ILogger tableLogger = (ILogger) provider.getService(TableLogger.class);
         ILogger emailLogger = (ILogger) provider.getService(EmailLogger.class);
@@ -129,7 +129,7 @@ public class DITest {
             .addSingleton('DITest.IUtility', 'DITest.Utility')
             .addScoped('DITest.ILogger', 'DITest.TableLogger')
             .addTransient('DITest.IAccountService', 'DITest.AccountService')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         DI.ServiceProvider providerB = (DI.ServiceProvider) providerA.getService(DI.ServiceProvider.class);
 
@@ -153,7 +153,7 @@ public class DITest {
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
             .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
             .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         DI.ServiceProvider providerB = (DI.ServiceProvider) providerA.getService(DI.ServiceProvider.class);
 
@@ -178,7 +178,7 @@ public class DITest {
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
             .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
             .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         DI.ServiceProvider providerB = (DI.ServiceProvider) providerA.getService(DI.ServiceProvider.class);
 
@@ -273,7 +273,7 @@ public class DITest {
             .addSingleton('DITest.ILogger', 'DITest.EmailLogger')
             .addSingletonFactory('DITest.ILogger', 'DITest.AWSS3LoggerFactory')
             .addTransientFactory('DITest.IAccountService', 'DITest.AccountServiceFactory')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         IAccountService accountService = (IAccountService) provider.getService(IAccountService.class);
         Assert.areNotEqual(null, accountService);
@@ -307,7 +307,7 @@ public class DITest {
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
             .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
             .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         Logger emailLogger = (Logger) provider.getService('DITest.ILogger<DITest.IEmailWriter>');
         Logger tableLogger = (Logger) provider.getService('DITest.ILogger<DITest.ITableWriter>');
@@ -328,7 +328,7 @@ public class DITest {
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
             .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
             .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         Logger emailLogger = (Logger) provider.getService('DITest.ILogger<DITest.IEmailWriter, DITest.INoService>');
         Logger tableLogger = (Logger) provider.getService('DITest.ILogger<DITest.ITableWriter, DITest.INoService>');
@@ -350,7 +350,7 @@ public class DITest {
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
             .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
             .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         Logger emailLogger = (Logger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class));
         Logger tableLogger = (Logger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class));
@@ -372,7 +372,7 @@ public class DITest {
             .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
             .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
             .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         Logger emailLogger = (Logger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class).t(INoService.class));
         Logger tableLogger = (Logger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class).t(INoService.class));
@@ -391,7 +391,7 @@ public class DITest {
     // static void test_factories_generic_services_sobjects() {
     //     DI.ServiceProvider provider = DI.services()
     //         .addSingletonFactory('DITest.IRepository', 'DITest.RepositoryFactory<DITest.Repository>')
-    //         .BuildServiceProvider();
+    //         .buildServiceProvider();
 
     //     Repository repository = (Repository) provider.getService('DITest.IRepository<Account, Contact>');
     //     Assert.areEqual(2, repository.sobjectTypes.size());
@@ -749,7 +749,7 @@ public class DITest {
 
     @IsTest
     static void test_exceptions_none() {
-        DI.ServiceProvider provider = DI.services().BuildServiceProvider();
+        DI.ServiceProvider provider = DI.services().buildServiceProvider();
 
         INoService noService = (INoService) provider.getService(INoService.class);
         Assert.areEqual(null, noService);
@@ -768,7 +768,7 @@ public class DITest {
             .addSingleton('DITest.GlobalConfiguration', new GlobalConfiguration())
             .addSingleton('DITest.GlobalConfiguration', 'DITest.GlobalConfiguration')
             .addSingleton('DITest.GlobalConfiguration', 'DITest.GlobalConfiguration')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         Assert.areEqual(1, DI.ROOT_MODULE.services.getDescriptors().size());
     }
@@ -781,7 +781,7 @@ public class DITest {
             .addSingletonFactory('DITest.IWrongFactory', 'DITest.WrongFactory')
             .addSingletonFactory('DITest.ILogger', 'DITest.NullExceptionLoggerFactory')
             .addSingletonFactory('DITest.INoFactory', 'DITest.NoFactory')
-            .BuildServiceProvider();
+            .buildServiceProvider();
 
         Exception exp;
         try {

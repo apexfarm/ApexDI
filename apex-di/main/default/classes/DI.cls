@@ -148,7 +148,7 @@ public with sharing class DI {
     }
 
     public class ModuleFactory implements DI.ServiceFactory {
-        public Object newInstance(Type moduleType, ServiceProvider serviceProvider) {
+        public Object newInstance(Type moduleType, ServiceProvider provider) {
             if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
                 throw new DITypeException('Module [' + moduleType + '] doesn\'t extend [DI.Module].');
             }
@@ -947,11 +947,11 @@ public with sharing class DI {
     }
 
     public interface ServiceFactory extends IServiceFactory {
-        Object newInstance(Type serviceType, ServiceProvider serviceProvider);
+        Object newInstance(Type serviceType, ServiceProvider provider);
     }
 
     public interface GenericServiceFactory extends IServiceFactory {
-        Object newInstance(Type serviceType, List<Type> parameterTypes, ServiceProvider serviceProvider);
+        Object newInstance(Type serviceType, List<Type> parameterTypes, ServiceProvider provider);
     }
 
     public interface ServiceCollection {

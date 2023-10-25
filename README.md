@@ -221,7 +221,7 @@ Assert.areNotEqual(anotherUtil, util);
 
 ### 2.3 Register with Concrete Types
 
-It is generally **NOT** recommended, but services can also be registered against their own implementation types. This will no longer enable us to code against abstractions, which is one of the main reason why we choose a DI framework. However, sometimes it is still **OK** for classes to be registered in this way, such as a `Utility` class. (Here `Utility` is not a good class name, by looking at the name we wouldn't know what to do with it, perhaps `Formatter` utility is more obvious.)
+It is generally **NOT** recommended, but services can also be registered against their own implementation types. This will no longer enable us to code against abstractions, which is one of the main reason why we choose a DI framework. However, sometimes it is still **OK** for classes to be registered in this way, such as a `Utility` class.
 
 ```java
 DI.ServiceProvider provider = DI.services()
@@ -272,12 +272,13 @@ public class AccountServiceFactory implements DI.ServiceFactory {
     }
 }
 
-// 3. Factory Registrition
+// 2. Factory Registrition
 DI.ServiceProvider provider = DI.services()
     .addTransientFactory('IAccountService', 'AccountServiceFactory')
     .addSingletonFactory('ILogger', 'AWSS3LoggerFactory')
     .BuildServiceProvider();
 
+// 3. Servcie Resolution
 IAccountService accountService = (IAccountService) provider.getService(IAccountService.class);
 ```
 
@@ -436,8 +437,9 @@ public class SalesModule extends DI.Module {
 }
 ```
 
-<p><img src="./docs/images/module-resolve-order.png#2023-3-15" align="right" width="200" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order, same as services registered with multiple implementations. For example on the diagram, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
+<p><img src="./docs/images/module-resolve-order.png#2023-3-15" align="right" width="200" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order. For example on the diagram, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
 </p>
+
 
 ```java
 public class Module1 extends DI.Module {
@@ -665,13 +667,13 @@ Use this interface to get the instances of the registered services.
 
 Implement these interfaces to define factory classes to create services with constructor injections.
 
-| DI.ServiceFactory Methods                                                  | Description                                                                                                                                             |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Object newInstance(Type serviceType, DI.ServiceProvider serviceProvider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Use `serviceType` in a condition to return polymorphism instances. |
+| DI.ServiceFactory Methods                                    | Description                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `Object newInstance(Type serviceType, DI.ServiceProvider provider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Use `serviceType` in a condition to return polymorphism instances. |
 
-| DI.GenericServiceFactory Methods                                                                      | Description                                                                                                                                    |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Object newInstance(Type serviceType, List<Type> parameterTypes, DI.ServiceProvider serviceProvider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Parameterized types are supplied as the second parameter. |
+| DI.GenericServiceFactory Methods                             | Description                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `Object newInstance(Type serviceType, List<Type> parameterTypes, DI.ServiceProvider provider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Parameterized types are supplied as the second parameter. |
 
 ### 6.5 DI.Module Abstract Class
 
