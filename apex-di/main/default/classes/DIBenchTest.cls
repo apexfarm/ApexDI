@@ -7,56 +7,43 @@ public with sharing class DIBenchTest {
     Datetime startTime = Datetime.now();
     Integer startCPU = Limits.getCpuTime();
     for (Integer i = 1; i <= 100; i++) {
-      services.addTransient('DIBenchTest.Benchmark' + i);
+      services.addTransient('DIBenchClass.Benchmark' + i);
     }
     Datetime endTime = Datetime.now();
     Integer endCPU = Limits.getCpuTime();
-    System.debug(
+    System.debug(LoggingLevel.INFO,
       'DI Registration Performance (Time): ' +
       (endTime.getTime() - startTime.getTime())
     );
-    System.debug('DI Registration Performance (CPU): ' + (endCPU - startCPU));
+    System.debug(LoggingLevel.INFO,'DI Registration Performance (CPU): ' + (endCPU - startCPU));
 
     DI.ServiceProvider provider = services.buildServiceProvider();
 
     startTime = Datetime.now();
     startCPU = Limits.getCpuTime();
     for (Integer i = 1; i <= 100; i++) {
-      provider.getService('DIBenchTest.Benchmark' + i);
+      provider.getService('DIBenchClass.Benchmark' + i);
     }
     endTime = Datetime.now();
     endCPU = Limits.getCpuTime();
-    System.debug(
+    System.debug(LoggingLevel.INFO,
       'DI Resolution Performance (Time): ' +
       (endTime.getTime() - startTime.getTime())
     );
-    System.debug('DI Resolution Performance (CPU): ' + (endCPU - startCPU));
+    System.debug(LoggingLevel.INFO,'DI Resolution Performance (CPU): ' + (endCPU - startCPU));
 
     startTime = Datetime.now();
     startCPU = Limits.getCpuTime();
     for (Integer i = 1; i <= 100; i++) {
-      provider.getService('DIBenchTest.Benchmark' + i);
+      provider.getService('DIBenchClass.Benchmark' + i);
     }
     endTime = Datetime.now();
     endCPU = Limits.getCpuTime();
-    System.debug(
+    System.debug(LoggingLevel.INFO,
       'DI Resolution Performance (Time): ' +
       (endTime.getTime() - startTime.getTime())
     );
-    System.debug('DI Resolution Performance (CPU): ' + (endCPU - startCPU));
-
-    startTime = Datetime.now();
-    startCPU = Limits.getCpuTime();
-    for (Integer i = 0; i < 100; i++) {
-      new Benchmark1();
-    }
-    endTime = Datetime.now();
-    endCPU = Limits.getCpuTime();
-    System.debug(
-      'Control Sample Performance (Time): ' +
-      (endTime.getTime() - startTime.getTime())
-    );
-    System.debug('Control Sample Performance (CPU): ' + (endCPU - startCPU));
+    System.debug(LoggingLevel.INFO,'DI Resolution Performance (CPU): ' + (endCPU - startCPU));
   }
   // #endregion
   // ==================

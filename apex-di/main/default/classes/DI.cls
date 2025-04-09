@@ -231,7 +231,7 @@ public with sharing class DI {
         private String implementationTypeName { get; private set; }
         private ServiceLifetime lifetime { get; private set; }
 
-        private abstract ServiceCallSite createCallSite(ResultCache cache);
+        public abstract ServiceCallSite createCallSite(ResultCache cache);
     }
 
     private class ConstructorServiceDescriptor extends ServiceDescriptor {
@@ -245,7 +245,7 @@ public with sharing class DI {
             this.lifetime = lifetime;
         }
 
-        private override ServiceCallSite createCallSite(ResultCache cache) {
+        public override ServiceCallSite createCallSite(ResultCache cache) {
             return new ConstructorCallSite(cache, this.serviceName, this.implementationTypeName);
         }
     }
@@ -269,7 +269,7 @@ public with sharing class DI {
             this.lifetime = lifetime;
         }
 
-        private override ServiceCallSite createCallSite(ResultCache cache) {
+        public override ServiceCallSite createCallSite(ResultCache cache) {
             return new FactoryCallSite(
                 cache,
                 this.serviceName,
@@ -289,7 +289,7 @@ public with sharing class DI {
             this.lifetime = lifetime;
         }
 
-        private override ServiceCallSite createCallSite(ResultCache cache) {
+        public override ServiceCallSite createCallSite(ResultCache cache) {
             return new ConstantCallSite(this.serviceName, this.implementationInstance);
         }
     }
@@ -770,7 +770,7 @@ public with sharing class DI {
             this.cache = cache;
         }
 
-        private abstract Object createInstance(ServiceProviderEngineScope scope);
+        public abstract Object createInstance(ServiceProviderEngineScope scope);
     }
 
     private class ConstructorCallSite extends ServiceCallSite {
@@ -788,7 +788,7 @@ public with sharing class DI {
             this.kind = CallSiteKind.Constructor;
         }
 
-        private override Object createInstance(ServiceProviderEngineScope scope) {
+        public override Object createInstance(ServiceProviderEngineScope scope) {
             return this.implementationType.newInstance();
         }
     }
@@ -831,7 +831,7 @@ public with sharing class DI {
             this.kind = CallSiteKind.Factory;
         }
 
-        private override Object createInstance(ServiceProviderEngineScope scope) {
+        public override Object createInstance(ServiceProviderEngineScope scope) {
             if (this.factory instanceof ServiceFactory) {
                 return ((ServiceFactory) this.factory).newInstance(this.implementationType, scope);
             } else if (this.factory instanceof GenericServiceFactory) {
@@ -852,7 +852,7 @@ public with sharing class DI {
             this.kind = CallSiteKind.Constant;
         }
 
-        private override Object createInstance(ServiceProviderEngineScope scope) {
+        public override Object createInstance(ServiceProviderEngineScope scope) {
             return this.defaultValue;
         }
     }
@@ -865,7 +865,7 @@ public with sharing class DI {
             this.kind = CallSiteKind.ServiceProvider;
         }
 
-        private override Object createInstance(ServiceProviderEngineScope scope) {
+        public override Object createInstance(ServiceProviderEngineScope scope) {
             return scope;
         }
     }
