@@ -17,8 +17,7 @@
 
 public with sharing class DI {
     private static final ResultCache RESULT_CACHE_NONE = new ResultCache(
-        CallSiteResultCacheLocation.None,
-        new ServiceCacheKey(null, null)
+        CallSiteResultCacheLocation.None, new ServiceCacheKey(null)
     );
 
     private static final RuntimeServiceProviderEngine RUNTIME_SERVICE_PROVIDER_ENGINE = new RuntimeServiceProviderEngine();
@@ -26,14 +25,14 @@ public with sharing class DI {
     @TestVisible
     // Singleton Module
     private static final RootModule ROOT_MODULE = new RootModule();
-    private static final GlobalModulesImpl GLOBAL_MODULES = new GlobalModulesImpl();
+    private static final GlobalModuleCollectionImpl GLOBAL_MODULES = new GlobalModuleCollectionImpl();
 
     static {
         GLOBAL_MODULES.services.addScoped(RootModule.class.getName(), ROOT_MODULE);
         CALL_SITE_RUNTIME_RESOLVER = new CallSiteRuntimeResolver(ROOT_MODULE.provider.root);
     }
 
-    public static GlobalModules modules() {
+    public static GlobalModuleCollection modules() {
         return GLOBAL_MODULES;
     }
 
@@ -52,20 +51,28 @@ public with sharing class DI {
         }
     }
 
-    public class GlobalModulesImpl implements GlobalModules {
+    public class GlobalModuleCollectionImpl implements GlobalModuleCollection {
         private ServiceCollectionImpl services { get; set; }
         private ServiceProviderImpl provider { get; set; }
         private Map<String, String> moduleReplacements;
 
-        private GlobalModulesImpl() {
+        private GlobalModuleCollectionImpl() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors());
             this.moduleReplacements = new Map<String, String>();
         }
 
+        public void replace(Type moduleType, Type newModuleType) {
+            this.replace(moduleType.getName(), newModuleType.getName());
+        }
+
         public void replace(String moduleTypeName, String newModuleTypeName) {
             this.moduleReplacements.put(moduleTypeName, newModuleTypeName);
             this.addModuleWithScopedFactory(newModuleTypeName);
+        }
+
+        public Module get(Type moduleType) {
+            return this.get(moduleType.getName());
         }
 
         public Module get(String moduleName) {
@@ -179,44 +186,30 @@ public with sharing class DI {
                 throw new DIIllegalArgumentException('getService(Type serviceType): serviceType cannot be null.');
             }
 
-            return getService(serviceType.getName(), null, this.root);
+            return getService(serviceType.getName(), this.root);
         }
 
         public Object getService(String serviceName) {
-            return this.getService(serviceName, this.root);
-        }
-
-        public Object getService(String serviceName, ServiceProviderEngineScope scope) {
             if (String.isBlank(serviceName)) {
                 throw new DIIllegalArgumentException('getService(String serviceName): serviceName cannot be blank.');
             }
 
-            List<Type> parameterTypes = null;
-            if (serviceName.endsWith('>')) {
-                parameterTypes = new List<Type>();
-                List<String> splits = serviceName.replace('>', '').split('<');
-                serviceName = splits[0];
-                for (String genericName : splits[1].split(',')) {
-                    parameterTypes.add(Type.forName(genericName.trim()));
-                }
-            }
-
-            return this.getService(serviceName.replace(' ', ''), parameterTypes, scope);
+            return this.getService(serviceName.replace(' ', ''), this.root);
         }
 
-        private Object getService(String serviceName, List<Type> parameterTypes, ServiceProviderEngineScope scope) {
+        private Object getService(String serviceName, ServiceProviderEngineScope scope) {
             ServiceRealizationFunc realizedService;
             if (this.realizedServices.containsKey(serviceName)) {
                 realizedService = this.realizedServices.get(serviceName);
             } else {
-                realizedService = createServiceAccessor(serviceName, parameterTypes);
+                realizedService = createServiceAccessor(serviceName);
                 this.realizedServices.put(serviceName, realizedService);
             }
             return realizedService.invoke(scope);
         }
 
-        private ServiceRealizationFunc createServiceAccessor(String serviceName, List<Type> parameterTypes) {
-            ServiceCallSite callSite = this.callSiteFactory.getCallSite(serviceName, parameterTypes);
+        private ServiceRealizationFunc createServiceAccessor(String serviceName) {
+            ServiceCallSite callSite = this.callSiteFactory.getCallSite(serviceName);
             if (callSite != null) {
                 return this.engine.realizeService(callSite);
             }
@@ -248,11 +241,15 @@ public with sharing class DI {
             if (serviceType == null) {
                 throw new DIIllegalArgumentException('getService(Type serviceType): serviceType cannot be null.');
             }
-            return this.rootProvider.getService(serviceType.getName(), null, this);
+            return this.rootProvider.getService(serviceType.getName(), this);
         }
 
         public Object getService(String serviceName) {
-            return this.rootProvider.getService(serviceName, this);
+            if (String.isBlank(serviceName)) {
+                throw new DIIllegalArgumentException('getService(String serviceName): serviceName cannot be blank.');
+            }
+
+            return this.rootProvider.getService(serviceName.replace(' ', ''), this);
         }
 
         public ServiceScope createScope() {
@@ -379,28 +376,31 @@ public with sharing class DI {
             this.callSiteCache.put(serviceName, callSite);
         }
 
-        private ServiceCallSite getCallSite(String serviceName, List<Type> parameterTypes) {
+        private ServiceCallSite getCallSite(String serviceName) {
             if (!callSiteCache.containsKey(serviceName)) {
-                callSiteCache.put(serviceName, createCallSite(serviceName, parameterTypes));
+                callSiteCache.put(serviceName, createCallSite(serviceName));
             }
             return callSiteCache.get(serviceName);
         }
 
-        private ServiceCallSite createCallSite(String serviceName, List<Type> parameterTypes) {
+        private ServiceCallSite createCallSite(String fullServiceName) {
+            String serviceName = fullServiceName;
+            if (serviceName.endsWith('>')) {
+                String[] names = serviceName.split('<');
+                serviceName = names[0];
+            }
             return tryCreateExact(
                 this.serviceDescriptors.get(serviceName),
-                serviceName,
-                parameterTypes
+                fullServiceName
             );
         }
 
         private ServiceCallSite tryCreateExact(
             ServiceDescriptor descriptor,
-            String serviceName,
-            List<Type> parameterTypes
+            String fullServiceName
         ) {
             if (descriptor != null) {
-                ResultCache cache = new ResultCache(descriptor.lifetime, serviceName, parameterTypes);
+                ResultCache cache = new ResultCache(descriptor.lifetime, fullServiceName);
                 return descriptor.createCallSite(cache);
             }
 
@@ -417,7 +417,7 @@ public with sharing class DI {
             Key = cacheKey;
         }
 
-        private ResultCache(ServiceLifetime lifetime, String serviceName, List<Type> parameterTypes) {
+        private ResultCache(ServiceLifetime lifetime, String serviceName) {
             switch on lifetime {
                 when SingletonLifetime {
                     this.location = CallSiteResultCacheLocation.Root;
@@ -433,17 +433,15 @@ public with sharing class DI {
                 }
             }
 
-            this.key = new ServiceCacheKey(serviceName, parameterTypes);
+            this.key = new ServiceCacheKey(serviceName);
         }
     }
 
     private class ServiceCacheKey {
         private String serviceName { get; set; }
-        private List<Type> parameterTypes { get; set; }
 
-        private ServiceCacheKey(String serviceName, List<Type> parameterTypes) {
+        private ServiceCacheKey(String serviceName) {
             this.serviceName = serviceName;
-            this.parameterTypes = parameterTypes;
         }
 
         public Boolean equals(Object obj) {
@@ -452,12 +450,11 @@ public with sharing class DI {
             }
 
             ServiceCacheKey that = (ServiceCacheKey) obj;
-            return this.serviceName == that.serviceName && this.parameterTypes == that.parameterTypes;
+            return this.serviceName == that.serviceName;
         }
 
         public Integer hashCode() {
             Integer hashCode = this.serviceName == null ? 23 : this.serviceName.hashCode();
-            hashCode = (hashCode * 397) ^ (this.parameterTypes == null ? 23 : this.parameterTypes.hashCode());
             return hashCode;
         }
     }
@@ -509,11 +506,21 @@ public with sharing class DI {
         }
 
         public override ServiceCallSite createCallSite(ResultCache cache) {
+            List<Type> parameterTypes = null;
+            String fullServiceName = cache.key.serviceName;
+            if (fullServiceName.endsWith('>')) {
+                parameterTypes = new List<Type>();
+                List<String> splits = fullServiceName.replace('>', '').split('<');
+                for (String genericName : splits[1].split(',')) {
+                    parameterTypes.add(Type.forName(genericName.trim()));
+                }
+            }
+
             return new FactoryCallSite(
                 cache,
                 this.serviceName,
                 this.factoryTypeName,
-                cache.key.parameterTypes
+                parameterTypes
             );
         }
     }
@@ -896,9 +903,11 @@ public with sharing class DI {
         ModuleCollection add(String moduleName);
     }
 
-    public interface GlobalModules {
+    public interface GlobalModuleCollection {
         Module get(String moduleName);
+        Module get(Type moduleType);
         void replace(String moduleName, String newModuleName);
+        void replace(Type moduleType, Type newModuleType);
     }
 
     // #endregion

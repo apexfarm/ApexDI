@@ -250,26 +250,6 @@ public class DITest {
     }
 
     @IsTest
-    static void test_factories_generic() {
-        DI.ServiceProvider provider = DI.services()
-            .addSingletonFactory('DITest.ILogger', 'DITest.LoggerFactory')
-            .addSingletonFactory('DITest.ITableLogger', 'DITest.LoggerFactory<DITest.TableLogger>')
-            .addSingletonFactory('DITest.IEmailLogger', 'DITest.LoggerFactory<DITest.EmailLogger>')
-            .addSingletonFactory('DITest.IAWSS3Logger', 'DITest.LoggerFactory<DITest.AWSS3Logger>')
-            .buildServiceProvider();
-
-        ILogger tableLogger = (ILogger) provider.getService('DITest.ITableLogger');
-        ILogger emailLogger = (ILogger) provider.getService('DITest.IEmailLogger');
-        ILogger awss3Logger = (ILogger) provider.getService('DITest.IAWSS3Logger');
-        ILogger nullLogger = (ILogger) provider.getService('DITest.ILogger');
-
-        Assert.isTrue(tableLogger instanceof TableLogger);
-        Assert.isTrue(emailLogger instanceof EmailLogger);
-        Assert.isTrue(awss3Logger instanceof AWSS3Logger);
-        Assert.isTrue(nullLogger instanceof NullLogger);
-    }
-
-    @IsTest
     static void test_factories_generic_services_1() {
         DI.ServiceProvider provider = DI.services()
             .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
@@ -340,19 +320,6 @@ public class DITest {
     public class AWSS3LoggerFactory implements DI.ServiceFactory {
         public Object newInstance(Type serviceType, DI.ServiceProvider serviceProvider) {
             return new AWSS3Logger();
-        }
-    }
-
-    public class LoggerFactory implements DI.ServiceFactory {
-        public ILogger newInstance(Type serviceType, DI.ServiceProvider serviceProvider) {
-            if (serviceType == AWSS3Logger.class) {
-                return new AWSS3Logger();
-            } else if (serviceType == EmailLogger.class) {
-                return new EmailLogger();
-            } else if (serviceType == TableLogger.class) {
-                return new TableLogger();
-            }
-            return new NullLogger();
         }
     }
 
