@@ -22,7 +22,8 @@ public with sharing class DIBenchTest {
     startTime = Datetime.now();
     startCPU = Limits.getCpuTime();
     for (Integer i = 1; i <= 100; i++) {
-      provider.getService('DIBenchClass.Benchmark' + i);
+      Object service = provider.getService('DIBenchClass.Benchmark' + i);
+      System.debug(LoggingLevel.INFO, service);
     }
     endTime = Datetime.now();
     endCPU = Limits.getCpuTime();

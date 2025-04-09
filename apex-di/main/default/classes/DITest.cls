@@ -43,9 +43,6 @@ public class DITest {
         Assert.areEqual(providerA.getService(IUtility.class), providerA.getService('DITest.IUtility'));
         Assert.areEqual(providerB.getService(IUtility.class), providerB.getService('DITest.IUtility'));
         Assert.areEqual(providerA.getService(IUtility.class), providerB.getService('DITest.IUtility'));
-        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService(IUtility.class, null));
-        Assert.areEqual(providerB.getService(IUtility.class), providerB.getService(IUtility.class, null));
-        Assert.areEqual(providerA.getService(IUtility.class), providerB.getService(IUtility.class, null));
 
         Assert.areNotEqual(null, providerA.getService(ILogger.class));
         Assert.areNotEqual(null, providerB.getService(ILogger.class));
@@ -141,9 +138,6 @@ public class DITest {
         Assert.areEqual(providerA.getService(ILogger.class), providerB.getService('DITest.ILogger'));
         Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService('DITest.ILogger'));
         Assert.areNotEqual(providerB.getService(ILogger.class), providerC.getService('DITest.ILogger'));
-        Assert.areEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class, null));
-        Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService(ILogger.class, null));
-        Assert.areNotEqual(providerB.getService(ILogger.class), providerC.getService(ILogger.class, null));
     }
 
     @IsTest
@@ -169,31 +163,6 @@ public class DITest {
         Assert.areEqual(emailLogger, providerC.getService('DITest.ILogger<DITest.IEmailWriter>'));
         Assert.areEqual(tableLogger, providerC.getService('DITest.ILogger<DITest.ITableWriter>'));
         Assert.areEqual(awss3Logger, providerC.getService('DITest.ILogger<DITest.IAWSS3Writer>'));
-    }
-
-    @IsTest
-    static void test_serviceProvider_generics2() {
-        DI.ServiceProvider providerA = DI.services()
-            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
-            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
-            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
-            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .buildServiceProvider();
-
-        DI.ServiceProvider providerB = (DI.ServiceProvider) providerA.getService(DI.ServiceProvider.class);
-
-        DI.ServiceProvider providerC = ((DI.ServiceScopeFactory) providerB).createScope().getServiceProvider();
-
-        Logger emailLogger = (Logger) providerC.getService(ILogger.class, DI.types().t(IEmailWriter.class));
-        Logger tableLogger = (Logger) providerC.getService(ILogger.class, DI.types().t(ITableWriter.class));
-        Logger awss3Logger = (Logger) providerC.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
-
-        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
-        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
-        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
-        Assert.areEqual(emailLogger, providerC.getService(ILogger.class, DI.types().t(IEmailWriter.class)));
-        Assert.areEqual(tableLogger, providerC.getService(ILogger.class, DI.types().t(ITableWriter.class)));
-        Assert.areEqual(awss3Logger, providerC.getService(ILogger.class, DI.types().t(IAWSS3Writer.class)));
     }
 
     public interface IUtility {
@@ -342,50 +311,6 @@ public class DITest {
         Assert.areEqual(awss3Logger, provider.getService('DITest.ILogger<DITest.IAWSS3Writer, DITest.INoService>'));
     }
 
-    @IsTest
-    // prettier-ignore
-    static void test_factories_generic_services_3() {
-        DI.ServiceProvider provider = DI.services()
-            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
-            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
-            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
-            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .buildServiceProvider();
-
-        Logger emailLogger = (Logger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class));
-        Logger tableLogger = (Logger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class));
-        Logger awss3Logger = (Logger) provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
-
-        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
-        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
-        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
-        Assert.areEqual(emailLogger, provider.getService(ILogger.class, DI.types().t(IEmailWriter.class)));
-        Assert.areEqual(tableLogger, provider.getService(ILogger.class, DI.types().t(ITableWriter.class)));
-        Assert.areEqual(awss3Logger, provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class)));
-    }
-
-    @IsTest
-    // prettier-ignore
-    static void test_factories_generic_services_4() {
-        DI.ServiceProvider provider = DI.services()
-            .addSingleton('DITest.IEmailWriter', 'DITest.EmailWriter')
-            .addSingleton('DITest.ITableWriter', 'DITest.TableWriter')
-            .addSingleton('DITest.IAWSS3Writer', 'DITest.AWSS3Writer')
-            .addSingletonFactory('DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>')
-            .buildServiceProvider();
-
-        Logger emailLogger = (Logger) provider.getService(ILogger.class, DI.types().t(IEmailWriter.class).t(INoService.class));
-        Logger tableLogger = (Logger) provider.getService(ILogger.class, DI.types().t(ITableWriter.class).t(INoService.class));
-        Logger awss3Logger = (Logger) provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class).t(INoService.class));
-
-        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
-        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
-        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
-        Assert.areEqual(emailLogger, provider.getService(ILogger.class, DI.types().t(IEmailWriter.class).t(INoService.class)));
-        Assert.areEqual(tableLogger, provider.getService(ILogger.class, DI.types().t(ITableWriter.class).t(INoService.class)));
-        Assert.areEqual(awss3Logger, provider.getService(ILogger.class, DI.types().t(IAWSS3Writer.class).t(INoService.class)));
-    }
-
     // ! Comment out before release, so no dependencies to standard SObjects such as Account and Contact!
     // @IsTest
     // static void test_factories_generic_services_sobjects() {
@@ -475,7 +400,7 @@ public class DITest {
     }
 
     public class GenericLoggerFactory implements DI.GenericServiceFactory {
-        public ILogger newInstance(Type servcieType, List<Type> parameterTypes, DI.ServiceProvider provider) {
+        public ILogger newInstance(Type servcieType, DI.ServiceProvider provider, List<Type> parameterTypes) {
             return new Logger((IWriter) provider.getService(parameterTypes[0]));
         }
     }
@@ -492,7 +417,7 @@ public class DITest {
     }
 
     public class RepositoryFactory implements DI.GenericServiceFactory {
-        public IRepository newInstance(Type servcieType, List<Type> parameterTypes, DI.ServiceProvider provider) {
+        public IRepository newInstance(Type servcieType, DI.ServiceProvider provider, List<Type> parameterTypes) {
             List<SObjectType> sobjectTypes = new List<SObjectType>();
             for (Type parameterType : parameterTypes) {
                 sobjectTypes.add(((SObject) parameterType.newInstance()).getSObjectType());
@@ -528,8 +453,8 @@ public class DITest {
 
     @IsTest
     static void test_modules_lifetime() {
-        DI.Module moduleA = DI.getModule(ModuleA.class);
-        DI.Module moduleB = DI.getModule(ModuleB.class);
+        DI.Module moduleA = DI.modules().get(ModuleA.class.getName());
+        DI.Module moduleB = DI.modules().get(ModuleB.class.getName());
 
         Assert.areNotEqual(null, moduleA.getService(IUtility.class));
         Assert.areNotEqual(null, moduleB.getService(IUtility.class));
@@ -571,7 +496,7 @@ public class DITest {
 
     @IsTest
     static void test_modules_generic_services() {
-        DI.Module moduleD = DI.getModule(ModuleD.class);
+        DI.Module moduleD = DI.modules().get(ModuleD.class.getName());
 
         Logger emailLogger = (Logger) moduleD.getService('DITest.ILogger<DITest.IEmailWriter>');
         Logger tableLogger = (Logger) moduleD.getService('DITest.ILogger<DITest.ITableWriter>');
@@ -583,22 +508,6 @@ public class DITest {
         Assert.areEqual(emailLogger, moduleD.getService('DITest.ILogger<DITest.IEmailWriter>'));
         Assert.areEqual(tableLogger, moduleD.getService('DITest.ILogger<DITest.ITableWriter>'));
         Assert.areEqual(awss3Logger, moduleD.getService('DITest.ILogger<DITest.IAWSS3Writer>'));
-    }
-
-    @IsTest
-    static void test_modules_generic_services_v2() {
-        DI.Module moduleD = DI.getModule(ModuleD.class);
-
-        Logger emailLogger = (Logger) moduleD.getService(ILogger.class, DI.types().t(IEmailWriter.class));
-        Logger tableLogger = (Logger) moduleD.getService(ILogger.class, DI.types().t(ITableWriter.class));
-        Logger awss3Logger = (Logger) moduleD.getService(ILogger.class, DI.types().t(IAWSS3Writer.class));
-
-        Assert.isTrue(emailLogger.writer instanceof IEmailWriter);
-        Assert.isTrue(tableLogger.writer instanceof ITableWriter);
-        Assert.isTrue(awss3Logger.writer instanceof IAWSS3Writer);
-        Assert.areEqual(emailLogger, moduleD.getService(ILogger.class, DI.types().t(IEmailWriter.class)));
-        Assert.areEqual(tableLogger, moduleD.getService(ILogger.class, DI.types().t(ITableWriter.class)));
-        Assert.areEqual(awss3Logger, moduleD.getService(ILogger.class, DI.types().t(IAWSS3Writer.class)));
     }
 
     public class Module1 extends DI.Module {
@@ -640,33 +549,19 @@ public class DITest {
 
     @IsTest
     static void test_modules_dependency() {
-        DI.Module module1 = DI.getModule(Module1.class);
+        DI.Module module1 = DI.modules().get(Module1.class.getName());
         ILogger logger1 = (ILogger) module1.getService(ILogger.class);
         Assert.isTrue(logger1 instanceof TableLogger);
 
-        DI.Module module3 = DI.getModule(Module3.class);
+        DI.Module module3 = DI.modules().get(Module3.class.getName());
         ILogger logger3 = (ILogger) module3.getService(ILogger.class);
         Assert.isTrue(logger3 instanceof EmailLogger);
     }
 
     @IsTest
     static void test_modules_replacement() {
-        DI.addModule(LogModule.class, MockupLogModule.class);
-        DI.Module module = DI.getModule(LogModule.class);
-        Assert.isTrue(module instanceof MockupLogModule);
-    }
-
-    @IsTest
-    static void test_modules_replacement2() {
-        DI.addModule('DITest.LogModule', 'DITest.MockupLogModule');
-        DI.Module module = DI.getModule(LogModule.class);
-        Assert.isTrue(module instanceof MockupLogModule);
-    }
-
-    @IsTest
-    static void test_modules_replacement3() {
-        DI.getModule(MockupSalesModule.class);
-        DI.Module module = DI.getModule(LogModule.class);
+        DI.modules().replace('DITest.LogModule', 'DITest.MockupLogModule');
+        DI.Module module = DI.modules().get(LogModule.class.getName());
         Assert.isTrue(module instanceof MockupLogModule);
     }
 
@@ -683,15 +578,6 @@ public class DITest {
             services.addSingleton('DITest.ILogger', 'DITest.TableLogger');
             services.addTransient('DITest.ILogger', 'DITest.EmailLogger');
             services.addSingletonFactory('DITest.ILogger', 'DITest.AWSS3LoggerFactory');
-        }
-    }
-
-    public class MockupSalesModule extends DI.Module {
-        protected override void import(DI.ModuleCollection modules) {
-            modules.add('DITest.LogModule', 'DITest.MockupLogModule');
-        }
-
-        protected override void configure(DI.ServiceCollection services) {
         }
     }
 
@@ -720,15 +606,6 @@ public class DITest {
             try {
                 Type noType = null;
                 provider.getService(noType);
-            } catch (DI.DIIllegalArgumentException ex) {
-                exp = ex;
-            }
-            Assert.isTrue(exp != null);
-
-            exp = null;
-            try {
-                Type noType = null;
-                provider.getService(noType, null);
             } catch (DI.DIIllegalArgumentException ex) {
                 exp = ex;
             }
@@ -794,15 +671,6 @@ public class DITest {
 
         exp = null;
         try {
-            Type noType = null;
-            provider.getService(noType, null);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-
-        exp = null;
-        try {
             String noName = null;
             provider.getService(noName);
         } catch (DI.DIIllegalArgumentException ex) {
@@ -847,7 +715,7 @@ public class DITest {
     static void test_exceptions_modules() {
         Exception exp = null;
         try {
-            DI.getModule(INoService.class);
+            DI.modules().get(INoService.class.getName());
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
@@ -855,23 +723,7 @@ public class DITest {
 
         exp = null;
         try {
-            DI.getModule(ExceptionModule1.class);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-
-        exp = null;
-        try {
-            DI.getModule(ExceptionModule2.class);
-        } catch (DI.DIIllegalArgumentException ex) {
-            exp = ex;
-        }
-        Assert.isTrue(exp != null);
-
-        exp = null;
-        try {
-            DI.getModule(ExceptionModule3.class);
+            DI.modules().get(ExceptionModule1.class.getName());
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
@@ -881,24 +733,6 @@ public class DITest {
     public class ExceptionModule1 extends DI.Module {
         protected override void import(DI.ModuleCollection modules) {
             modules.add('DITest.INoService');
-        }
-
-        protected override void configure(DI.ServiceCollection services) {
-        }
-    }
-
-    public class ExceptionModule2 extends DI.Module {
-        protected override void import(DI.ModuleCollection modules) {
-            modules.add('DITest.INoService', 'DITest.INoService');
-        }
-
-        protected override void configure(DI.ServiceCollection services) {
-        }
-    }
-
-    public class ExceptionModule3 extends DI.Module {
-        protected override void import(DI.ModuleCollection modules) {
-            modules.add('DITest.LogModule', 'DITest.INoService');
         }
 
         protected override void configure(DI.ServiceCollection services) {
