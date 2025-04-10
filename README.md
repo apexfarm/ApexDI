@@ -26,7 +26,7 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
   - `DI.types()` removed.
   - `DI.getModule` replaced with `DI.modules().get()`.
   - `DI.addModule` replaced with `DI.modules().replace()`.
-  - `GenericServiceFactory.netInstance()` updated.
+  - `GenericServiceFactory.newInstance()` parameter order updated.
 
 
 ---
@@ -490,9 +490,9 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `Object newInstance(Type serviceType, DI.ServiceProvider provider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Use `serviceType` in a condition to return polymorphism instances. |
 
-| DI.GenericServiceFactory Methods                             | Description                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `Object newInstance(Type serviceType, DI.ServiceProvider provider, List<Type> parameterTypes)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Parameterized types are supplied as the second parameter. |
+| DI.GenericServiceFactory Methods                             | Description                              |
+| ------------------------------------------------------------ | ---------------------------------------- |
+| `Object newInstance(Type serviceType, DI.ServiceProvider provider, List<Type> parameterTypes)` | Additional `parameterTypes` is provided. |
 
 ### 6.5 DI.Module Abstract Class
 
@@ -513,3 +513,4 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 ## 7. License
 
 Apache 2.0
+
