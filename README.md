@@ -2,7 +2,7 @@
 
 ![](https://img.shields.io/badge/version-3.0-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
 
-A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/Dependency_injection)) framework ported from .Net Core. It can help:
+A lightweight Apex dependency injection framework ported from .Net Core. It can help:
 
 1. Adopt some of the best practices of dependency injection pattern:
    - Decouple implementations and code against abstractions.
@@ -22,22 +22,23 @@ A lightweight Apex dependency injection ([wiki](https://en.wikipedia.org/wiki/De
 
 - Upgraded to API version 63.0.
 - Updated benchmark test results.
-- Changed to APIs:
+- Changed APIs:
   - `DI.types()` removed.
-  - `DI.getModule` removed, use `DI.modules().get()` instead.
+  - `DI.getModule` replaced with `DI.modules().get()`.
+  - `DI.addModule` replaced with `DI.modules().replace()`.
   - `GenericServiceFactory.netInstance()` updated.
 
 
 ---
 
-Here is an example controller, when `DI.Module` is used to resolve services. Controller is special in a way that it is running under static context, while our DI is under instance context. In order to fit the gap between them, we used static initializer to "inject" the services into a controller. As you can see, the controller doesn't depend on any concrete types, it becomes thin and clean!
+Here is an example controller, when `DI.Module` is used to resolve services. As you can see, the controller doesn't depend on any concrete types, it becomes thin and clean!
 
 ```java
 public with sharing class AccountController {
     private static final IAccountService accountService;
     private static final ILogger logger;
 
-    public AccountController() {
+    static {
         DI.Module module = DI.modules().get(SalesModule.class);
         accountService = (IAccountService) module.getService(IAccountService.class);
         logger = (ILogger) module.getService(ILogger.class);
@@ -91,12 +92,12 @@ public with sharing class AccountController {
 
 ## 1. Performance
 
-<p align="center"><img src="./docs/images/benchmark.png" width=900 alt="Performance Benchmark"></p>
+<p align="center"><img src="./docs/images/benchmark.png" width=800 alt="Performance Benchmark"></p>
 
-1. Service registration with class names is currently the fastest solution, compared to registration with strong class types. They almost cost nothing  (**green color line**).
-2. Feel free to use interfaces and abstractions for service registration and resolution, this is a best practice. They have no impact to performance.
-3. Please do not hesitate to use transient lifetime when appropriate. The time spent for their first time realizations are the same as singletons. And once a service is realized, it can be reused for the subsequent realization, which is faster (**blue color line**).
-4. It is strongly recommended to use modules dividing services, and better to limit 100 services per module.
+1. Service registration with class names is currently the fastest solution, compared to strong class types. They almost cost nothing  (**green color line**).
+2. Feel free to use interfaces and abstractions for service registration and resolution, this is the best practice. They have no impact to performance.
+3. Feel free to use transient lifetime when appropriate. Once a service is realized, its "constructor" can be reused for the subsequent realization, which almost cost nothing (**blue color line**).
+4. It is strongly recommended to use modules dividing services, and better to limit services below 100 per module.
 
 ## 2. Services
 
@@ -115,13 +116,17 @@ IAccountService accountService = (IAccountService) provider.getService(IAccountS
 
 ### 2.1 Service Lifetime
 
-The library defined three different widths and lengths of lifetimes. Order from wider longer lifetime to narrower shorter lifetime: Singleton > Scoped > Transient.
+The library defined three different widths and lengths of lifetimes:
 
 1. **Singleton**: the same instance will be returned whenever `getService()` is invoked in organization-wide, even from different `DI.Module` or `DI.ServiceProvider`.
-2. **Scoped**: the same instance will be returned only when `getService()` of the same `DI.Module` or `DI.ServiceProvider` is invoked. Can also be understood as a singleton within a module or provider, but not across them.
+2. **Scoped**: the same instance will be returned only when `getService()` is invoked within the same `DI.Module` or `DI.ServiceProvider`. Can also be understood as a singleton within a module or provider, but not across them.
 3. **Transient**: new instances will be created whenever `getService()` is invoked.
 
-The following code use `DI.ServiceProvider` to create service boundaries. [Modules](#4-modules) also follows the same lifetime mechanism.
+Lifetimes can also be interpreted as the following hierarchy, services registered in higher level (transient) have higher precedence over those registered in lower level (singleton) contexts.
+
+<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="Lifetime Hierarchy"></p>
+
+The following code use `DI.ServiceProvider` to create service boundaries. [Modules](#4-modules) also follow the same mechanism.
 
 ```java
 DI.ServiceProvider providerA = DI.services()
@@ -156,23 +161,19 @@ Assert.areNotEqual( // different services are returned from providerA
     providerA.getService(IAccountService.class));
 ```
 
-Lifetimes can also be interpreted as the following hierarchy, and together provide flexible configurations of services. As rule of thumb, services registered in higher level (transient) have higher precedence than those registered in lower level (singleton) contexts.
-
-<p align="center"><img src="./docs/images/lifetime-illustrated.png#2023-3-15" width=550 alt="Lifetime Hierarchy"></p>
-
 ### 2.2 Register with Concrete Types
 
-Sometimes it is still **OK** for classes to be registered with concrete types instead of interfaces, such as a `Utility` class.
+Sometimes it is **OK** for classes to be registered with concrete types instead of interfaces, such as a `Utility` class.
 
 ```java
 DI.ServiceProvider provider = DI.services()
-    .addTransient('AccountService')
-    .addTransient('AccountService', 'AccountService') // equivalent to above
     .addSingleton('Utility')
     .addSingleton('Utility', 'Utility')               // equivalent to above
+    .addSingleton('Constants')
+    .addSingleton('Constants', 'Constants')           // equivalent to above
     .BuildServiceProvider();
 
-AccountService accountService = (AccountService) provider.getService(AccountService.class);
+Utility utility = (Utility) provider.getService(Utility.class);
 ```
 
 ### 2.3 Service Override
@@ -205,7 +206,6 @@ Here is an example about how to implement `DI.ServiceFactory` to achieve constru
 // 1. Service Factory
 public class AccountServiceFactory implements DI.ServiceFactory {
     public IAccountService newInstance(Type servcieType, DI.ServiceProvider provider) {
-        // inject parameters dynamically
         return new AccountService((ILogger) provider.getService(ILogger.class));
     }
 }
@@ -222,7 +222,7 @@ IAccountService accountService = (IAccountService) provider.getService(IAccountS
 
 ### 3.2 Factory Inner Class
 
-We can also define the factory as an inner class of the service. And even better we can define the constructor as private to enhance the encapsulation.
+We can also define the factory as an inner class of the service. And even better the constructor can be defined as private to enhance the encapsulation.
 
 ```java
 public with sharing class AccountService implements IAccountService {
@@ -249,7 +249,7 @@ DI.ServiceProvider provider = DI.services()
 
 ### 3.3 Generic Factory
 
-Generic service enables reusing the same factory to create a family of services adapt to different scenarios.
+Generic service enables reusing the same factory and a template class to create a family of services.
 
 ```java
 public class EmailWriter implements IEmailWriter, IWriter { ... }
@@ -266,8 +266,9 @@ public class Logger implements ILogger {
 
 // declare generic service factory
 public class LoggerFactory implements DI.GenericServiceFactory {
-    public ILogger newInstance(Type servcieType, List<Type> parameterTypes, DI.ServiceProvider provider) {
-	    return new Logger((IWriter) provider.getService(parameterTypes[0]));
+    public ILogger newInstance(Type servcieType, DI.ServiceProvider provider, List<Type> parameterTypes) {
+        Type writer = parameterTypes[0];
+	    return new Logger((IWriter) provider.getService(writer));
     }
 }
 
@@ -287,7 +288,7 @@ ILogger awss3Logger = (ILogger) provider.getService('ILogger<IAWSS3Writer>');
 
 It is highly recommended to use a `DI.Module` to manage service registrations, so it can help:
 
-- Create boundaries to reduce loading of unused services into current module.
+- Create boundaries to limit number of services registered into current module.
 - Create dependencies to increase the reusability of services in other modules.
 
 ### 4.1 Module Creation
@@ -386,10 +387,7 @@ When project becomes huge, divide modules into different folders as below.
 
 ### 5.1 Test with Service Mockup
 
-The following `AccountService` depends on both `IAccountRepository` and `ILogger` to function. A simple `DI.ServiceProvider` enable us to do the followings:
-
-1. Provide a `NullLogger` to silence the logging service during testing.
-2. Replace `IAccountRepository` with a mockup repository to silence the actual requests made to Salesforce database, which gives performance boost quite a lot.
+The following `AccountService` depends on  `ILogger` to function. A simple `DI.ServiceProvider` enable us to provide a `NullLogger` to silence the logging messages.
 
 ```java
 @isTest
@@ -416,9 +414,9 @@ public class AccountServiceTest {
 
 ### 5.2 Test with Module Mockup
 
-Take the controller defined at the top of the page as an example, to create the following test class `AccountControllerTest`. Here we try to replace the module returned by `DI.getModule(SalesModule.cass)` inside the controller static initializer with a mock module at runtime.
+Here we try to provide a mockup `SalesModule` used in the top `AccountController`.
 
-1. Use `DI.modules().replace()` API to replace `SalesModule` with the `MockSalesModule` defined as inner class. **Note**: `DI.addModule` must be called before the first reference of the `AccountController` class.
+1. Use `DI.modules().replace()` API to replace `SalesModule` with the `MockSalesModule`. **Note**: `DI.modules().replace()` must be called before the first reference of the `AccountController` class, when static initializer has not been executed.
 1. Extend `SalesModule` with `MockSalesModule`. **Note**: both the `SalesModule` class and its `configure(services)` method need to be declared as `virtual` prior.
 1. Use `services.addTransient` to override `IAccountService` with the `MockAccountService` inner class.
 
