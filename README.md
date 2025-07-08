@@ -257,18 +257,19 @@ public class TableWriter implements ITableWriter, IWriter { ... }
 public class AWSS3Writer implements IAWSS3Writer, IWriter { ... }
 
 public class Logger implements ILogger {
-    private IWriter writer { get; set; }
-    public Logger(IWriter writer) { this.writer = writer; }
-    public void log(String message) {
+    private IWriter writer { get; set; }                     // dependency
+    public Logger(IWriter writer) { this.writer = writer; }  // constructor
+    public void log(String message) {                        // method
         this.writer.write(message);
     }
 }
 
 // declare generic service factory
 public class LoggerFactory implements DI.GenericServiceFactory {
-    public ILogger newInstance(Type servcieType, DI.ServiceProvider provider, List<Type> parameterTypes) {
+    public ILogger newInstance(Type servcieType, DI.ServiceProvider provider,
+        List<Type> parameterTypes) {
         Type writer = parameterTypes[0];
-	    return new Logger((IWriter) provider.getService(writer));
+        return new Logger((IWriter) provider.getService(writer));
     }
 }
 
