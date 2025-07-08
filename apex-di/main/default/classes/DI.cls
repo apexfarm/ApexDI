@@ -95,7 +95,7 @@ public with sharing class DI {
     }
 
     public class ModuleFactory implements DI.ServiceFactory {
-        public Object newInstance(Type moduleType, ServiceProvider provider) {
+        public Object newInstance(ServiceProvider provider, Type moduleType) {
             if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
                 throw new DITypeException('Module [' + moduleType + '] doesn\'t extend [DI.Module].');
             }
@@ -120,6 +120,7 @@ public with sharing class DI {
         private RootModule() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors());
+            this.configure(this.services);
         }
 
         private ServiceDescriptor add(ServiceDescriptor descriptor) {
@@ -354,13 +355,9 @@ public with sharing class DI {
             return visitCallSiteMain(callSite, scope);
         }
 
-        protected virtual Object visitRootCache(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
-            return visitCallSiteMain(callSite, scope);
-        }
+        protected abstract Object visitRootCache(ServiceCallSite callSite, ServiceProviderEngineScope scope);
 
-        protected virtual Object visitScopeCache(ServiceCallSite callSite, ServiceProviderEngineScope scope) {
-            return visitCallSiteMain(callSite, scope);
-        }
+        protected abstract Object visitScopeCache(ServiceCallSite callSite, ServiceProviderEngineScope scope);
     }
 
     private class CallSiteFactory {
@@ -437,9 +434,11 @@ public with sharing class DI {
         }
     }
 
+    @TestVisible
     private class ServiceCacheKey {
         private String serviceName { get; set; }
 
+        @TestVisible
         private ServiceCacheKey(String serviceName) {
             this.serviceName = serviceName;
         }
@@ -615,10 +614,10 @@ public with sharing class DI {
 
         public override Object createInstance(ServiceProviderEngineScope scope) {
             if (this.factory instanceof ServiceFactory) {
-                return ((ServiceFactory) this.factory).newInstance(Type.forName(this.serviceName), scope);
+                return ((ServiceFactory) this.factory).newInstance(scope, Type.forName(this.serviceName));
             } else if (this.factory instanceof GenericServiceFactory) {
                 return ((GenericServiceFactory) this.factory)
-                    .newInstance(Type.forName(this.serviceName), scope, this.parameterTypes);
+                    .newInstance(scope, Type.forName(this.serviceName), this.parameterTypes);
             }
             throw new NoSuchElementException();
         }
@@ -851,11 +850,11 @@ public with sharing class DI {
     }
 
     public interface ServiceFactory extends IServiceFactory {
-        Object newInstance(Type serviceType, ServiceProvider provider);
+        Object newInstance(ServiceProvider provider, Type serviceType);
     }
 
     public interface GenericServiceFactory extends IServiceFactory {
-        Object newInstance(Type serviceType, ServiceProvider provider, List<Type> parameterTypes);
+        Object newInstance(ServiceProvider provider, Type serviceType, List<Type> parameterTypes);
     }
 
     public interface ServiceCollection {

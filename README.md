@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-3.0-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-3.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
 
 A lightweight Apex dependency injection framework ported from .Net Core. It can help:
 
@@ -11,23 +11,29 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
    - Create boundaries to avoid loading of unused services into current module.
    - Create dependencies to increase the reusability of services in other modules.
 
-| Environment           | Installation Link                                            | Version   |
-| --------------------- | ------------------------------------------------------------ | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TKk4YAG"><img src="docs/images/deploy-button.png"></a> | ver 3.0.0 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TKk4YAG"><img src="docs/images/deploy-button.png"></a> | ver 3.0.0 |
+| Environment           | Installation Link                                                                                                                                         | Version   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOgUYAW"><img src="docs/images/deploy-button.png"></a> | ver 3.1.0 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOgUYAW"><img src="docs/images/deploy-button.png"></a>  | ver 3.1.0 |
 
 ---
 
-### **v3.0 Release Notes**
+### **Release Notes**
+
+**v3.1**:
+
+- [Service Factory Interface](#64-service-factory-interface) parameter order changes:
+  - `newInstance(DI.ServiceProvider provider, Type serviceType)`
+  - `newInstance(DI.ServiceProvider provider, Type serviceType, List<Type> parameterTypes)`
+
+**v3.0**:
 
 - Upgraded to API version 63.0.
 - Updated benchmark test results.
-- Changed APIs:
+- API Changes:
   - `DI.types()` removed.
   - `DI.getModule` replaced with `DI.modules().get()`.
   - `DI.addModule` replaced with `DI.modules().replace()`.
-  - `GenericServiceFactory.newInstance()` parameter order updated.
-
 
 ---
 
@@ -85,7 +91,7 @@ public with sharing class AccountController {
   - [6.1 DI Class](#61-di-class)
   - [6.2 DI.ServiceCollection Interface](#62-diservicecollection-interface)
   - [6.3 DI.ServiceProvider Interface](#63-diserviceprovider-interface)
-  - [6.4 DI.ServiceFactory Interface](#64-diservicefactory-interface)
+  - [6.4 Service Factory Interface](#64-service-factory-interface)
   - [6.5 DI.Module Abstract Class](#65-dimodule-abstract-class)
   - [6.6 DI.GlobalModuleCollection Interface](#66-diglobalmodulecollection-interface)
 - [7. License](#7-license)
@@ -94,7 +100,7 @@ public with sharing class AccountController {
 
 <p align="center"><img src="./docs/images/benchmark.png" width=800 alt="Performance Benchmark"></p>
 
-1. Service registration with class names is currently the fastest solution, compared to strong class types. They almost cost nothing  (**green color line**).
+1. Service registration with class names is currently the fastest solution, compared to strong class types. They almost cost nothing (**green color line**).
 2. Feel free to use interfaces and abstractions for service registration and resolution, this is the best practice. They have no impact to performance.
 3. Feel free to use transient lifetime when appropriate. Once a service is realized, its "constructor" can be reused for the subsequent realization, which almost cost nothing (**blue color line**).
 4. It is strongly recommended to use modules dividing services, and better to limit services below 100 per module.
@@ -205,7 +211,7 @@ Here is an example about how to implement `DI.ServiceFactory` to achieve constru
 ```java
 // 1. Service Factory
 public class AccountServiceFactory implements DI.ServiceFactory {
-    public IAccountService newInstance(Type servcieType, DI.ServiceProvider provider) {
+    public IAccountService newInstance(DI.ServiceProvider provider, Type servcieType) {
         return new AccountService((ILogger) provider.getService(ILogger.class));
     }
 }
@@ -235,7 +241,7 @@ public with sharing class AccountService implements IAccountService {
 
     // factory declared as inner class
     public class Factory implements DI.ServiceFactory {
-        public IAccountService newInstance(Type servcieType, DI.ServiceProvider provider) {
+        public IAccountService newInstance(DI.ServiceProvider provider, Type servcieType) {
             return new AccountService((ILogger) provider.getService(ILogger.class));
         }
     }
@@ -266,7 +272,7 @@ public class Logger implements ILogger {
 
 // declare generic service factory
 public class LoggerFactory implements DI.GenericServiceFactory {
-    public ILogger newInstance(Type servcieType, DI.ServiceProvider provider,
+    public ILogger newInstance(DI.ServiceProvider provider, Type servcieType,
         List<Type> parameterTypes) {
         Type writer = parameterTypes[0];
         return new Logger((IWriter) provider.getService(writer));
@@ -325,9 +331,8 @@ public class SalesModule extends DI.Module {
 }
 ```
 
-<p><img src="./docs/images/module-resolve-order.png#2023-3-15" align="right" width="200" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order. For example on the diagram, module 1 depends on module 5 and 2, and module 2 depends on module 4 and 3. The last registered module always take precedence over the prior ones, therefore services will be resolved in order from module 1 to 5.
+<p><img src="./docs/images/module-resolve-order.png#2023-3-15" align="right" width="200" alt="Module Resolve Order"> Module dependencies are resolved as "Last-In, First-Out" order. For example on the diagram, services will be resolved in the order from module 1 to 5.
 </p>
-
 
 ```java
 public class Module1 extends DI.Module {
@@ -388,7 +393,7 @@ When project becomes huge, divide modules into different folders as below.
 
 ### 5.1 Test with Service Mockup
 
-The following `AccountService` depends on  `ILogger` to function. A simple `DI.ServiceProvider` enable us to provide a `NullLogger` to silence the logging messages.
+The following `AccountService` depends on `ILogger` to function. A simple `DI.ServiceProvider` enable us to provide a `NullLogger` to silence the logging messages.
 
 ```java
 @isTest
@@ -487,13 +492,13 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 
 ### 6.4 Service Factory Interface
 
-| DI.ServiceFactory Methods                                    | Description                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `Object newInstance(Type serviceType, DI.ServiceProvider provider)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Use `serviceType` in a condition to return polymorphism instances. |
+| DI.ServiceFactory Methods                                           | Description                                                                                                                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Object newInstance(DI.ServiceProvider provider, Type serviceType)` | Use the `serviceProvider` to get the instances of the services defined in the scope. Use `serviceType` in a condition to return polymorphism instances. |
 
-| DI.GenericServiceFactory Methods                             | Description                              |
-| ------------------------------------------------------------ | ---------------------------------------- |
-| `Object newInstance(Type serviceType, DI.ServiceProvider provider, List<Type> parameterTypes)` | Additional `parameterTypes` is provided. |
+| DI.GenericServiceFactory Methods                                                               | Description                              |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `Object newInstance(DI.ServiceProvider provider, Type serviceType, List<Type> parameterTypes)` | Additional `parameterTypes` is provided. |
 
 ### 6.5 DI.Module Abstract Class
 
@@ -514,4 +519,3 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 ## 7. License
 
 Apache 2.0
-

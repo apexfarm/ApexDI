@@ -17,6 +17,14 @@
 
 @IsTest
 public class DITest {
+    @IsTest
+    static void test_nonfunction_for_coverage() {
+        DI.ServiceCacheKey key1 = new DI.ServiceCacheKey('DITest.IUtility');
+        DI.ServiceCacheKey key2 = new DI.ServiceCacheKey('DITest.IUtility');
+        Assert.areEqual(key1, key2);
+        Assert.areEqual(key1.hashCode(), key2.hashCode());
+    }
+
     // ================
     // #region Services
 
@@ -309,7 +317,7 @@ public class DITest {
     }
 
     public class AccountServiceFactory implements DI.ServiceFactory {
-        public IAccountService newInstance(Type serviceType, DI.ServiceProvider provider) {
+        public IAccountService newInstance(DI.ServiceProvider provider, Type serviceType) {
             return new AccountService(
                 (ILogger) provider.getService(ILogger.class),
                 (GlobalConfiguration) provider.getService(GlobalConfiguration.class)
@@ -318,7 +326,7 @@ public class DITest {
     }
 
     public class AWSS3LoggerFactory implements DI.ServiceFactory {
-        public Object newInstance(Type serviceType, DI.ServiceProvider serviceProvider) {
+        public Object newInstance(DI.ServiceProvider serviceProvider, Type serviceType) {
             return new AWSS3Logger();
         }
     }
@@ -367,7 +375,7 @@ public class DITest {
     }
 
     public class GenericLoggerFactory implements DI.GenericServiceFactory {
-        public ILogger newInstance(Type servcieType, DI.ServiceProvider provider, List<Type> parameterTypes) {
+        public ILogger newInstance(DI.ServiceProvider provider, Type servcieType, List<Type> parameterTypes) {
             return new Logger((IWriter) provider.getService(parameterTypes[0]));
         }
     }
@@ -384,7 +392,7 @@ public class DITest {
     }
 
     public class RepositoryFactory implements DI.GenericServiceFactory {
-        public IRepository newInstance(Type servcieType, DI.ServiceProvider provider, List<Type> parameterTypes) {
+        public IRepository newInstance(DI.ServiceProvider provider, Type servcieType, List<Type> parameterTypes) {
             List<SObjectType> sobjectTypes = new List<SObjectType>();
             for (Type parameterType : parameterTypes) {
                 sobjectTypes.add(((SObject) parameterType.newInstance()).getSObjectType());
@@ -516,20 +524,31 @@ public class DITest {
 
     @IsTest
     static void test_modules_dependency() {
+        // string names
         DI.Module module1 = DI.modules().get(Module1.class.getName());
         ILogger logger1 = (ILogger) module1.getService(ILogger.class);
         Assert.isTrue(logger1 instanceof TableLogger);
 
-        DI.Module module3 = DI.modules().get(Module3.class.getName());
+        // strong types
+        DI.Module module3 = DI.modules().get(Module3.class);
         ILogger logger3 = (ILogger) module3.getService(ILogger.class);
         Assert.isTrue(logger3 instanceof EmailLogger);
     }
 
     @IsTest
     static void test_modules_replacement() {
-        DI.modules().replace('DITest.LogModule', 'DITest.MockupLogModule');
-        DI.Module module = DI.modules().get(LogModule.class.getName());
-        Assert.isTrue(module instanceof MockupLogModule);
+        { // string names
+            DI.modules().replace('DITest.LogModule', 'DITest.MockupLogModule');
+            DI.Module module = DI.modules().get(LogModule.class.getName());
+            Assert.isTrue(module instanceof MockupLogModule);
+        }
+
+        { // strong types
+            DI.modules().replace(DITest.LogModule.class, DITest.MockupLogModule.class);
+            DI.Module module = DI.modules().get(LogModule.class.getName());
+            Assert.isTrue(module instanceof MockupLogModule);
+        }
+
     }
 
     public class LogModule extends DI.Module {
@@ -568,7 +587,7 @@ public class DITest {
     }
 
     public class NullExceptionLoggerFactory implements DI.ServiceFactory {
-        public ILogger newInstance(Type servcieType, DI.ServiceProvider provider) {
+        public ILogger newInstance(DI.ServiceProvider provider, Type servcieType) {
             Exception exp;
             try {
                 Type noType = null;
