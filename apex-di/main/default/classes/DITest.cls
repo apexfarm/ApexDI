@@ -633,7 +633,7 @@ public class DITest {
             .addSingleton('DITest.GlobalConfiguration', 'DITest.GlobalConfiguration')
             .buildServiceProvider();
 
-        Assert.areEqual(1, DI.ROOT_MODULE.services.getDescriptors().size());
+        Assert.areEqual(1, DI.ROOT_SERVICES.services.getDescriptors().size());
     }
 
     @IsTest

@@ -19,18 +19,13 @@ public with sharing class DI {
     private static final ResultCache RESULT_CACHE_NONE = new ResultCache(
         CallSiteResultCacheLocation.None, new ServiceCacheKey(null)
     );
-
+    // Reference RUNTIME_SERVICE_PROVIDER_ENGINE as the singleton instance;
     private static final RuntimeServiceProviderEngine RUNTIME_SERVICE_PROVIDER_ENGINE = new RuntimeServiceProviderEngine();
-    private static final CallSiteRuntimeResolver CALL_SITE_RUNTIME_RESOLVER;
-    @TestVisible
-    // Singleton Module
-    private static final RootModule ROOT_MODULE = new RootModule();
-    private static final GlobalModuleCollectionImpl GLOBAL_MODULES = new GlobalModuleCollectionImpl();
 
-    static {
-        GLOBAL_MODULES.services.addScoped(RootModule.class.getName(), ROOT_MODULE);
-        CALL_SITE_RUNTIME_RESOLVER = new CallSiteRuntimeResolver(ROOT_MODULE.provider.root);
-    }
+    @TestVisible
+    private static final RootServices ROOT_SERVICES = new RootServices();
+    private static final GlobalModules GLOBAL_MODULES = new GlobalModules();
+
 
     public static GlobalModuleCollection modules() {
         return GLOBAL_MODULES;
@@ -42,24 +37,34 @@ public with sharing class DI {
 
     // ==============
     // #region Module
-    private class ModuleCollectionImpl implements ModuleCollection {
-        private List<String> moduleNames = new List<String>();
 
-        public ModuleCollection add(String moduleName) {
-            moduleNames.add(moduleName);
-            return this;
+    // Root encapsulate all singleton details.
+    private class RootServices {
+        @TestVisible
+        private final IServiceCollection services { get; set; }
+        private final IServiceProvider provider { get; set; }
+        private final CallSiteRuntimeResolver resolver { get; set;}
+
+        private RootServices() {
+            this.services = new ServiceCollectionImpl();
+            this.provider = new ServiceProviderImpl(this.services.getDescriptors());
+            this.resolver = new CallSiteRuntimeResolver(this.provider.getRootScope());
         }
     }
 
-    public class GlobalModuleCollectionImpl implements GlobalModuleCollection {
-        private ServiceCollectionImpl services { get; set; }
-        private ServiceProviderImpl provider { get; set; }
+    public class GlobalModules implements GlobalModuleCollection {
+        private IServiceCollection services { get; set; } // module services
+        private IServiceProvider provider { get; set; }   // module provider
         private Map<String, String> moduleReplacements;
 
-        private GlobalModuleCollectionImpl() {
+        private GlobalModules() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors());
             this.moduleReplacements = new Map<String, String>();
+        }
+
+        private void addModuleWithScopedFactory(string moduleName) {
+            this.services.addScopedFactory(moduleName, 'DI.ModuleFactory');
         }
 
         public void replace(Type moduleType, Type newModuleType) {
@@ -82,15 +87,12 @@ public with sharing class DI {
 
             Module module = (Module) this.provider.getService(moduleName);
             if (module == null) {
-                this.provider.callSiteFactory.callSiteCache.remove(moduleName);
-                this.provider.realizedServices.remove(moduleName);
+                // once getService is invoked, the null result will be cached.
+                // so we need to remove the cache and re-add the module with scoped factory.
+                this.provider.removeService(moduleName);
                 this.addModuleWithScopedFactory(moduleName);
             }
             return (Module) this.provider.getService(moduleName);
-        }
-
-        private void addModuleWithScopedFactory(string moduleName) {
-            this.services.addScopedFactory(moduleName, 'DI.ModuleFactory');
         }
     }
 
@@ -107,35 +109,28 @@ public with sharing class DI {
             module.import(modules);
             for (String moduleName : modules.moduleNames) {
                 Module importedModule = GLOBAL_MODULES.get(moduleName);
-                module.addModule(importedModule);
+                module.importModule(importedModule);
             }
 
             module.configure(module.services);
-            module.addProvider();
+            module.buildServiceProvider();
             return module;
         }
     }
 
-    private class RootModule extends Module {
-        private RootModule() {
-            this.services = new ServiceCollectionImpl();
-            this.provider = new ServiceProviderImpl(this.services.getDescriptors());
-            this.configure(this.services);
-        }
+    private class ModuleCollectionImpl implements ModuleCollection {
+        private List<String> moduleNames = new List<String>();
 
-        private ServiceDescriptor add(ServiceDescriptor descriptor) {
-            this.services.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            return descriptor;
-        }
-
-        protected override void configure(ServiceCollection services) {
+        public ModuleCollection add(String moduleName) {
+            moduleNames.add(moduleName);
+            return this;
         }
     }
 
     public abstract class Module implements ServiceProvider {
         @TestVisible
-        private ServiceCollectionImpl services { get; set; }
-        private ServiceProviderImpl provider { get; set; }
+        private IServiceCollection services { get; set; }
+        private IServiceProvider provider { get; set; }
 
         public Object getService(Type serviceType) {
             return this.provider.getService(serviceType);
@@ -145,11 +140,11 @@ public with sharing class DI {
             return this.provider.getService(serviceName);
         }
 
-        private void addModule(Module module) {
-            this.services.addServices(module.services);
+        private void importModule(Module module) {
+            this.services.addDescriptors(module.services);
         }
 
-        private void addProvider() {
+        private void buildServiceProvider() {
             this.provider = new ServiceProviderImpl(this.services.getDescriptors());
         }
 
@@ -165,12 +160,11 @@ public with sharing class DI {
     // =========================
     // #region Service Providers
 
-    private class ServiceProviderImpl implements ServiceProvider {
+    private class ServiceProviderImpl implements IServiceProvider {
         private ServiceProviderEngine engine { get; set; }
         protected Map<String, ServiceRealizationFunc> realizedServices { get; private set; }
         private ServiceProviderEngineScope root { get; set; }
         private CallSiteFactory callSiteFactory { get; set; }
-        private CallSiteRuntimeResolver callSiteResolver { get; set; }
 
         private ServiceProviderImpl(Map<String, ServiceDescriptor> serviceDescriptors) {
             this.root = new ServiceProviderEngineScope(this, true);
@@ -179,7 +173,6 @@ public with sharing class DI {
 
             this.callSiteFactory = new CallSiteFactory(serviceDescriptors);
             this.callSiteFactory.add(ServiceProvider.class.getName(), new ServiceProviderCallSite());
-            this.callSiteResolver = CALL_SITE_RUNTIME_RESOLVER;
         }
 
         public Object getService(Type serviceType) {
@@ -220,6 +213,15 @@ public with sharing class DI {
 
         private ServiceScope createScope() {
             return new ServiceProviderEngineScope(this, false);
+        }
+
+        public void removeService(String serviceName) {
+            this.callSiteFactory.callSiteCache.remove(serviceName);
+            this.realizedServices.remove(serviceName);
+        }
+
+        public ServiceProviderEngineScope getRootScope() {
+            return this.root;
         }
     }
 
@@ -262,7 +264,6 @@ public with sharing class DI {
         protected abstract ServiceRealizationFunc realizeService(ServiceCallSite callSite);
     }
 
-    // Reference RUNTIME_SERVICE_PROVIDER_ENGINE as the singleton instance;
     private class RuntimeServiceProviderEngine extends ServiceProviderEngine {
         protected override ServiceRealizationFunc realizeService(ServiceCallSite callSite) {
             return new RuntimeServiceRealizationFunc(callSite);
@@ -277,7 +278,7 @@ public with sharing class DI {
         }
 
         public Object invoke(ServiceProviderEngineScope scope) {
-            return CALL_SITE_RUNTIME_RESOLVER.resolve(callSite, scope);
+            return ROOT_SERVICES.resolver.resolve(callSite, scope);
         }
     }
 
@@ -293,7 +294,7 @@ public with sharing class DI {
     // ==================
     // #region Call Sites
 
-    // Reference CALL_SITE_RUNTIME_RESOLVER as the singleton instance;
+    // Reference ROOT_SERVICES.resolver as the singleton instance;
     private class CallSiteRuntimeResolver extends CallSiteVisitor {
         private ServiceProviderEngineScope rootScope { get; set; }
 
@@ -660,15 +661,23 @@ public with sharing class DI {
         private final Map<String, ServiceDescriptor> serviceDescriptors;
 
         {
-            serviceDescriptors = new Map<String, ServiceDescriptor>();
+            this.serviceDescriptors = new Map<String, ServiceDescriptor>();
+        }
+
+        public ServiceProvider buildServiceProvider() {
+            return new ServiceProviderImpl(this.serviceDescriptors);
         }
 
         public Map<String, ServiceDescriptor> getDescriptors() {
             return this.serviceDescriptors;
         }
 
-        public ServiceProvider buildServiceProvider() {
-            return new ServiceProviderImpl(serviceDescriptors);
+        public void addDescriptor(ServiceDescriptor descriptor) {
+            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+        }
+
+        public void addDescriptors(IServiceCollection services) {
+            this.serviceDescriptors.putAll(services.getDescriptors());
         }
 
         public ServiceCollection addTransient(String serviceName) {
@@ -677,7 +686,7 @@ public with sharing class DI {
                 serviceName,
                 ServiceLifetime.TransientLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -687,7 +696,7 @@ public with sharing class DI {
                 implementationTypeName,
                 ServiceLifetime.TransientLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -697,7 +706,7 @@ public with sharing class DI {
                 factoryTypeName,
                 ServiceLifetime.TransientLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -707,7 +716,7 @@ public with sharing class DI {
                 instance,
                 ServiceLifetime.TransientLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -717,7 +726,7 @@ public with sharing class DI {
                 serviceName,
                 ServiceLifetime.ScopedLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -727,7 +736,7 @@ public with sharing class DI {
                 implementationTypeName,
                 ServiceLifetime.ScopedLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -737,7 +746,7 @@ public with sharing class DI {
                 factoryTypeName,
                 ServiceLifetime.ScopedLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -747,7 +756,7 @@ public with sharing class DI {
                 instance,
                 ServiceLifetime.ScopedLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
+            this.addDescriptor(descriptor);
             return this;
         }
 
@@ -757,8 +766,8 @@ public with sharing class DI {
                 serviceName,
                 ServiceLifetime.SingletonLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            ROOT_MODULE.add(descriptor);
+            this.addDescriptor(descriptor);
+            ROOT_SERVICES.services.addDescriptor(descriptor);
             return this;
         }
 
@@ -768,8 +777,8 @@ public with sharing class DI {
                 implementationTypeName,
                 ServiceLifetime.SingletonLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            ROOT_MODULE.add(descriptor);
+            this.addDescriptor(descriptor);
+            ROOT_SERVICES.services.addDescriptor(descriptor);
             return this;
         }
 
@@ -779,8 +788,8 @@ public with sharing class DI {
                 factoryTypeName,
                 ServiceLifetime.SingletonLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            ROOT_MODULE.add(descriptor);
+            this.addDescriptor(descriptor);
+            ROOT_SERVICES.services.addDescriptor(descriptor);
             return this;
         }
 
@@ -790,13 +799,8 @@ public with sharing class DI {
                 instance,
                 ServiceLifetime.SingletonLifeTime
             );
-            this.serviceDescriptors.put(descriptor.serviceName, descriptor);
-            ROOT_MODULE.add(descriptor);
-            return this;
-        }
-
-        public ServiceCollection addServices(IServiceCollection services) {
-            this.serviceDescriptors.putAll(services.getDescriptors());
+            this.addDescriptor(descriptor);
+            ROOT_SERVICES.services.addDescriptor(descriptor);
             return this;
         }
     }
@@ -876,14 +880,21 @@ public with sharing class DI {
         ServiceCollection addScopedFactory(String serviceName, String factoryTypeName);
     }
 
+    @TestVisible
     private interface IServiceCollection extends ServiceCollection {
         Map<String, ServiceDescriptor> getDescriptors();
-        ServiceCollection addServices(IServiceCollection services);
+        void addDescriptor(ServiceDescriptor descriptor);
+        void addDescriptors(IServiceCollection services);
     }
 
     public interface ServiceProvider {
         Object getService(Type serviceType);
         Object getService(String serviceName);
+    }
+
+    private interface IServiceProvider extends ServiceProvider {
+        ServiceProviderEngineScope getRootScope();
+        void removeService(String serviceName);
     }
 
     public interface ServiceScope {
