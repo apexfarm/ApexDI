@@ -211,7 +211,7 @@ Assert.isTrue(logger instanceof AWSS3Logger);
 
 <p align="center"><img src="./docs/images/registry.png" width=800 alt="DI Registry"></p>
 
-Services can also be registered with `DIRegistry__mdt`. To load all services under `DITest::*` group, please use the `addFromRegistry` API.
+Services can also be registered using `DIRegistry__mdt`. To load all services in the `DITest::*` group, use the `addFromRegistry` API. This method also works with the `DI.Module` configuration.
 
 ```java
 DI.ServiceProvider provider = DI.services()
