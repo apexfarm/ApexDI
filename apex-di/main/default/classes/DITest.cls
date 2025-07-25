@@ -37,22 +37,19 @@ public class DITest {
                     ServiceGroup__c = 'DITest',
                     ServiceLifetime__c = 'Singleton',
                     ServiceName__c = 'DITest.ILogger',
-                    ImplementationName__c = 'DITest.AWSS3LoggerFactory',
-                    ImplementationByFactory__c = true
+                    ImplementationName__c = 'DITest.AWSS3LoggerFactory'
                 ),
                 new DIRegistry__mdt(
                     ServiceGroup__c = 'DITest',
                     ServiceLifetime__c = 'Transient',
                     ServiceName__c = 'DITest.ILogger',
-                    ImplementationName__c = 'DITest.AWSS3LoggerFactory',
-                    ImplementationByFactory__c = true
+                    ImplementationName__c = 'DITest.AWSS3LoggerFactory'
                 ),
                 new DIRegistry__mdt(
                     ServiceGroup__c = 'DITest',
                     ServiceLifetime__c = 'Scoped',
                     ServiceName__c = 'DITest.IAccountService',
-                    ImplementationName__c = 'DITest.AccountService',
-                    ImplementationByFactory__c = false
+                    ImplementationName__c = 'DITest.AccountService'
                 )
             }
         );

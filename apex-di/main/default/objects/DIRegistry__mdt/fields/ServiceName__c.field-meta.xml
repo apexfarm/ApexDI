@@ -4,7 +4,7 @@
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Service Name</label>
-    <length>60</length>
+    <length>80</length>
     <required>true</required>
     <type>Text</type>
     <unique>false</unique>

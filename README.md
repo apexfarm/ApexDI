@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-3.3-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-3.3.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
 
 A lightweight Apex dependency injection framework ported from .Net Core. It can help:
 
@@ -13,8 +13,8 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
 
 | Environment           | Installation Link                                                                                                                                         | Version   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOvmYAG"><img src="docs/images/deploy-button.png"></a> | ver 3.3.0 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOvmYAG"><img src="docs/images/deploy-button.png"></a>  | ver 3.3.0 |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOw1YAG"><img src="docs/images/deploy-button.png"></a> | ver 3.3.1 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOw1YAG"><img src="docs/images/deploy-button.png"></a>  | ver 3.3.1 |
 
 ---
 
@@ -22,6 +22,7 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
 
 **v3.3**:
 
+- Upgraded to API version 64.0.
 - [Service Registry](#24-service-registry): Services can be configured with custom metadata types now.
 
 **v3.1**:
@@ -29,15 +30,6 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
 - [Service Factory Interface](#64-service-factory-interface) parameter order changes:
   - `newInstance(DI.ServiceProvider provider, Type serviceType)`
   - `newInstance(DI.ServiceProvider provider, Type serviceType, List<Type> parameterTypes)`
-
-**v3.0**:
-
-- Upgraded to API version 63.0.
-- Updated benchmark test results.
-- API Changes:
-  - `DI.types()` removed.
-  - `DI.getModule` replaced with `DI.modules().get()`.
-  - `DI.addModule` replaced with `DI.modules().replace()`.
 
 ---
 
@@ -211,19 +203,20 @@ Assert.isTrue(logger instanceof AWSS3Logger);
 
 <p align="center"><img src="./docs/images/registry.png" width=800 alt="DI Registry"></p>
 
-Services can also be registered using `DIRegistry__mdt`. To load all services in the `DITest::*` group, use the `addFromRegistry` API. This method also works with the `DI.Module` configuration.
+Services can also be registered using `DIRegistry__mdt`. To load all services in the `DITest::*` group, use the `addFromRegistry` API. This method also works with the `DI.Module` configuration. **Note**: Implementation by a factory should have names ending with the `Factory` suffix.
 
 ```java
 DI.ServiceProvider provider = DI.services()
-    .addFromRegistry('DITest')         // service group prefix
+    .addFromRegistry('DITest')                         // service group prefix
     .buildServiceProvider();
 ```
 
-A service group name acts as a logical namespace, for example: `group::subgroup::subgroup`. If loading all services in a group is unnecessary, you can select a specific subgroup as below. Group name separator can be any symbol selected by developers.
+A service group name acts as a logical namespace, for example: `group::subgroup::subgroup`. If loading all services in a group is unnecessary, you can select a specific subgroup as below.
 
 ```java
 DI.ServiceProvider provider = DI.services()
-    .addFromRegistry('DITest::Group1') // service group prefix
+    .addFromRegistry('DITest::Group1')                 // service group prefix
+    .addScoped('DITest.ILogger', 'DITest.TableLogger') // mix with code regirter
     .buildServiceProvider();
 ```
 

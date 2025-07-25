@@ -3,14 +3,14 @@
     {
       "path": "apex-di",
       "package": "ApexDI",
-      "versionName": "ver 3.3.0",
-      "versionNumber": "3.3.0.NEXT",
+      "versionName": "ver 3.3.1",
+      "versionNumber": "3.3.1.NEXT",
       "default": true
     }
   ],
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "63.0",
+  "sourceApiVersion": "64.0",
   "packageAliases": {
     "ApexDI": "0Ho2v000000PBFqCAO",
     "ApexDI@2.0.0-1": "04t2v000007CfeFAAS",
@@ -25,6 +25,8 @@
     "ApexDI@3.1.0-1": "04tGC000007TOgUYAW",
     "ApexDI@3.2.0-1": "04tGC000007TOvcYAG",
     "ApexDI@3.3.0-1": "04tGC000007TOvhYAG",
-    "ApexDI@3.3.0-2": "04tGC000007TOvmYAG"
+    "ApexDI@3.3.0-2": "04tGC000007TOvmYAG",
+    "ApexDI@3.3.1-2": "04tGC000007TOvwYAG",
+    "ApexDI@3.3.1-3": "04tGC000007TOw1YAG"
   }
 }

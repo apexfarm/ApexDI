@@ -670,7 +670,7 @@ public with sharing class DI {
                 bindingVars.put('tmpVar' + index, groupPrefix + '%');
             }
 
-            String query = 'SELECT ServiceGroup__c, ImplementationByFactory__c, ServiceLifetime__c, ServiceName__c, ImplementationName__c FROM DIRegistry__mdt';
+            String query = 'SELECT ServiceGroup__c, ServiceLifetime__c, ServiceName__c, ImplementationName__c FROM DIRegistry__mdt';
             query += ' WHERE IsActive__c = TRUE';
             List<String> conditions = new List<String>();
             for (String groupPrefix : serviceGroupPrefixes) {
@@ -708,10 +708,10 @@ public with sharing class DI {
         private IServiceCollection createServiceCollection(List<DIRegistry__mdt> registries) {
             IServiceCollection services = new ServiceCollectionImpl();
             for (DIRegistry__mdt registry : registries) {
-                Boolean isFactory = registry.ImplementationByFactory__c;
                 String lifetime = registry.ServiceLifetime__c;
                 String serviceName = registry.ServiceName__c;
                 String implementationName = registry.ImplementationName__c;
+                Boolean isFactory = registry.ImplementationName__c.endsWith('Factory');
 
                 if (isFactory) {
                     switch on lifetime {
