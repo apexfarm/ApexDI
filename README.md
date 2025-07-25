@@ -22,7 +22,7 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
 
 **v3.3**:
 
-[Service Registry](#24-service-registry): Services can be configured with custom metadata types now.
+- [Service Registry](#24-service-registry): Services can be configured with custom metadata types now.
 
 **v3.1**:
 
