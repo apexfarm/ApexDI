@@ -207,16 +207,16 @@ Services can also be registered using `DIRegistry__mdt`. To load all services in
 
 ```java
 DI.ServiceProvider provider = DI.services()
-    .addFromRegistry('DITest')                         // service group prefix
+    .addFromRegistry('DITest') // service group prefix
     .buildServiceProvider();
 ```
 
-A service group name acts as a logical namespace, for example: `group::subgroup::subgroup`. If loading all services in a group is unnecessary, you can select a specific subgroup as below.
+A service group name serves as a logical namespace, such as `group::subgroup::subgroup`. If you do not need to load all services within a group, you can target a specific subgroup as shown below. While registry-based registration can be combined with code-based registration, services from the registry are always loaded after those registered in code.
 
 ```java
 DI.ServiceProvider provider = DI.services()
     .addFromRegistry('DITest::Group1')                 // service group prefix
-    .addScoped('DITest.ILogger', 'DITest.TableLogger') // mix with code regirter
+    .addScoped('DITest.ILogger', 'DITest.TableLogger') // code-based registration
     .buildServiceProvider();
 ```
 
