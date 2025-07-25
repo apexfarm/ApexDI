@@ -26,6 +26,109 @@ public class DITest {
     }
 
     // ================
+    // #region Registry
+
+    @IsTest
+    static void test_registry_for_coverage() {
+        DI.ServiceRegistry registry = new DI.ServiceRegistry();
+        DI.IServiceCollection servcies = registry.createServiceCollection(
+            new List<DIRegistry__mdt>{
+                new DIRegistry__mdt(
+                    ServiceGroup__c = 'DITest',
+                    ServiceLifetime__c = 'Singleton',
+                    ServiceName__c = 'DITest.ILogger',
+                    ImplementationName__c = 'DITest.AWSS3LoggerFactory',
+                    ImplementationByFactory__c = true
+                ),
+                new DIRegistry__mdt(
+                    ServiceGroup__c = 'DITest',
+                    ServiceLifetime__c = 'Transient',
+                    ServiceName__c = 'DITest.ILogger',
+                    ImplementationName__c = 'DITest.AWSS3LoggerFactory',
+                    ImplementationByFactory__c = true
+                ),
+                new DIRegistry__mdt(
+                    ServiceGroup__c = 'DITest',
+                    ServiceLifetime__c = 'Scoped',
+                    ServiceName__c = 'DITest.IAccountService',
+                    ImplementationName__c = 'DITest.AccountService',
+                    ImplementationByFactory__c = false
+                )
+            }
+        );
+    }
+
+    @IsTest
+    static void test_registry_exception() {
+        Exception exp;
+        try {
+            DI.ServiceProvider providerB = DI.services().addFromRegistry(null).buildServiceProvider();
+        } catch (DI.DIIllegalArgumentException ex) {
+            exp = ex;
+        }
+        Assert.isTrue(exp != null);
+
+        DI.ServiceProvider providerB = DI.services().addFromRegistry('NoGroup').buildServiceProvider();
+    }
+
+    @IsTest
+    static void test_registry() {
+        DI.ServiceCollection services = DI.services().addFromRegistry('DITest');
+        DI.ServiceProvider providerA = services.buildServiceProvider();
+        if (
+            providerA.getService(IUtility.class) == null ||
+            providerA.getService(ILogger.class) == null ||
+            providerA.getService(IAccountService.class) == null
+        ) {
+            return;
+        }
+
+        DI.ServiceProvider providerB = DI.services()
+            .addFromRegistry('DITest::Group1')
+            .addFromRegistry('DITest::Group2')
+            .addFromRegistry('DITest::Group3')
+            .buildServiceProvider();
+        DI.ServiceProvider providerC = DI.services()
+            .addFromRegistry('DITest::Group2')
+            .addTransient('DITest.IAccountService', 'DITest.AccountService')
+            .buildServiceProvider();
+
+        // Singleton
+        Assert.areNotEqual(null, providerA.getService(IUtility.class));
+        Assert.areNotEqual(null, providerB.getService(IUtility.class));
+        Assert.areEqual(null, providerC.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService(IUtility.class));
+        Assert.areEqual(providerB.getService(IUtility.class), providerB.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), providerB.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService('DITest.IUtility'));
+        Assert.areEqual(providerB.getService(IUtility.class), providerB.getService('DITest.IUtility'));
+        Assert.areEqual(providerA.getService(IUtility.class), providerB.getService('DITest.IUtility'));
+
+        // Scoped
+        Assert.areNotEqual(null, providerA.getService(ILogger.class));
+        Assert.areNotEqual(null, providerB.getService(ILogger.class));
+        Assert.areNotEqual(null, providerC.getService(ILogger.class));
+        Assert.areEqual(providerA.getService(ILogger.class), providerA.getService(ILogger.class));
+        Assert.areEqual(providerB.getService(ILogger.class), providerB.getService(ILogger.class));
+        Assert.areEqual(providerC.getService(ILogger.class), providerC.getService(ILogger.class));
+        Assert.areNotEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class));
+        Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService(ILogger.class));
+
+        // Transient
+        Assert.areNotEqual(null, providerA.getService(IAccountService.class));
+        Assert.areNotEqual(null, providerB.getService(IAccountService.class));
+        Assert.areNotEqual(null, providerC.getService(IAccountService.class));
+        Assert.areNotEqual(providerA.getService(IAccountService.class), providerA.getService(IAccountService.class));
+        Assert.areNotEqual(providerB.getService(IAccountService.class), providerB.getService(IAccountService.class));
+        Assert.areNotEqual(providerC.getService(IAccountService.class), providerC.getService(IAccountService.class));
+        Assert.areNotEqual(providerA.getService(IAccountService.class), providerB.getService(IAccountService.class));
+        Assert.areNotEqual(providerA.getService(IAccountService.class), providerC.getService(IAccountService.class));
+    }
+
+    // #endregion
+    // ================
+
+    // ================
     // #region Services
 
     @IsTest
@@ -52,12 +155,14 @@ public class DITest {
         Assert.areEqual(providerB.getService(IUtility.class), providerB.getService('DITest.IUtility'));
         Assert.areEqual(providerA.getService(IUtility.class), providerB.getService('DITest.IUtility'));
 
+        // Scoped
         Assert.areNotEqual(null, providerA.getService(ILogger.class));
         Assert.areNotEqual(null, providerB.getService(ILogger.class));
         Assert.areEqual(providerA.getService(ILogger.class), providerA.getService(ILogger.class));
         Assert.areEqual(providerB.getService(ILogger.class), providerB.getService(ILogger.class));
         Assert.areNotEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class));
 
+        // Transient
         Assert.areNotEqual(null, providerA.getService(IAccountService.class));
         Assert.areNotEqual(null, providerB.getService(IAccountService.class));
         Assert.areNotEqual(providerA.getService(IAccountService.class), providerA.getService(IAccountService.class));
@@ -537,18 +642,19 @@ public class DITest {
 
     @IsTest
     static void test_modules_replacement() {
-        { // string names
+        {
+            // string names
             DI.modules().replace('DITest.LogModule', 'DITest.MockupLogModule');
             DI.Module module = DI.modules().get(LogModule.class.getName());
             Assert.isTrue(module instanceof MockupLogModule);
         }
 
-        { // strong types
+        {
+            // strong types
             DI.modules().replace(DITest.LogModule.class, DITest.MockupLogModule.class);
             DI.Module module = DI.modules().get(LogModule.class.getName());
             Assert.isTrue(module instanceof MockupLogModule);
         }
-
     }
 
     public class LogModule extends DI.Module {

@@ -3,8 +3,9 @@
     <fullName>ServiceGroup__c</fullName>
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>i.e. GroupName::SubGroupName::SubGroupName</inlineHelpText>
     <label>Service Group</label>
-    <length>30</length>
+    <length>60</length>
     <required>true</required>
     <type>Text</type>
     <unique>false</unique>

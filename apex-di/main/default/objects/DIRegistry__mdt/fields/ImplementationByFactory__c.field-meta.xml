@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ImplementationByFactory__c</fullName>
+    <defaultValue>false</defaultValue>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText
+  >Checked when the implementation type is a service factory.</inlineHelpText>
+    <label>Implementation by Factory</label>
+    <type>Checkbox</type>
+</CustomField>

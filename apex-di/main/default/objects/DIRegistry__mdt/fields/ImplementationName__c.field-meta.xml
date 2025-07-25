@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>ImplementationClassName__c</fullName>
+    <fullName>ImplementationName__c</fullName>
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <label>Implementation Class Name</label>
-    <length>40</length>
+    <label>Implementation Name</label>
+    <length>60</length>
     <required>true</required>
     <type>Text</type>
     <unique>false</unique>

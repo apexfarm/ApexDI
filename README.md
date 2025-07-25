@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-3.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-3.3-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
 
 A lightweight Apex dependency injection framework ported from .Net Core. It can help:
 
@@ -13,12 +13,16 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
 
 | Environment           | Installation Link                                                                                                                                         | Version   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOgUYAW"><img src="docs/images/deploy-button.png"></a> | ver 3.1.0 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOgUYAW"><img src="docs/images/deploy-button.png"></a>  | ver 3.1.0 |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOvmYAG"><img src="docs/images/deploy-button.png"></a> | ver 3.3.0 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOvmYAG"><img src="docs/images/deploy-button.png"></a>  | ver 3.3.0 |
 
 ---
 
 ### **Release Notes**
+
+**v3.3**:
+
+[Service Registry](#24-service-registry): Services can be configured with custom metadata types now.
 
 **v3.1**:
 
@@ -76,6 +80,7 @@ public with sharing class AccountController {
   - [2.1 Service Lifetime](#21-service-lifetime)
   - [2.2 Register with Concrete Types](#22-register-with-concrete-types)
   - [2.3 Service Override](#23-service-override)
+  - [<span>&#11088;</span> 2.4 Service Registry](#24-service-registry)
 - [3. Factory](#3-factory)
   - [3.1 Factory Class](#31-factory-class)
   - [3.2 Factory Inner Class](#32-factory-inner-class)
@@ -200,6 +205,36 @@ DI.ServiceProvider provider = DI.services()
 
 ILogger logger = (ILogger) provider.getService(ILogger.class)
 Assert.isTrue(logger instanceof AWSS3Logger);
+```
+
+### 2.4 Service Registry
+
+<p align="center"><img src="./docs/images/registry.png" width=800 alt="DI Registry"></p>
+
+Services can also be registered with `DIRegistry__mdt`. To load all services under `DITest::*` group, please use the `addFromRegistry` API.
+
+```java
+DI.ServiceProvider provider = DI.services()
+    .addFromRegistry('DITest')         // service group prefix
+    .buildServiceProvider();
+```
+
+A service group name acts as a logical namespace, for example: `group::subgroup::subgroup`. If loading all services in a group is unnecessary, you can select a specific subgroup as below. Group name separator can be any symbol selected by developers.
+
+```java
+DI.ServiceProvider provider = DI.services()
+    .addFromRegistry('DITest::Group1') // service group prefix
+    .buildServiceProvider();
+```
+
+Multiple groups may be loaded simultaneously. Note that the order in which groups are loaded is important—services from the last loaded group will override any identically named services from previously loaded groups.
+
+```java
+DI.ServiceProvider provider = DI.services()
+    .addFromRegistry('GroupA')
+    .addFromRegistry('GroupB')
+    .addFromRegistry('GroupC')
+    .buildServiceProvider();
 ```
 
 ## 3. Factory
@@ -467,6 +502,7 @@ Most of the APIs are ported from .Net Core Dependency Injection framework.
 | Methods                                                                                    | Description                                                                                                        |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `DI.ServiceProvider buildServiceProvider()`                                                | Create `DI.ServiceProvider` with services registered into the container.                                           |
+| `DI.ServiceProvider addFromRegistry(String serviceGroupPrefix)`                            | Register all services from `DIRegistry__mdt` with a group name prefix.                                             |
 | **Transient**                                                                              |                                                                                                                    |
 | `DI.ServiceCollection addTransient(String serviceTypeName)`                                | Register a transient type against its own type.                                                                    |
 | `DI.ServiceCollection addTransient(String serviceTypeName, String implementationTypeName)` | Register a transient type against its descendent types.                                                            |
