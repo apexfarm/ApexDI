@@ -28,6 +28,33 @@ public class DITest {
     // ================
     // #region Registry
 
+    public class RegistryModuleA extends DI.Module {
+        protected override void configure(DI.ServiceCollection services) {
+            services.addFromRegistry('DITest::Group2');
+        }
+    }
+
+    public class RegistryModuleB extends DI.Module {
+        protected override void import(DI.ModuleCollection modules) {
+            modules.add('DITest.RegistryModuleA');
+        }
+
+        protected override void configure(DI.ServiceCollection services) {
+            services.addFromRegistry('DITest::Group3');
+        }
+    }
+
+    @IsTest
+    static void test_registry_module() {
+        DI.Module moduleA = DI.modules().get(RegistryModuleB.class);
+
+        Assert.areEqual(null, moduleA.getService(IUtility.class));
+        Assert.areNotEqual(null, moduleA.getService(ILogger.class));
+        Assert.areNotEqual(null, moduleA.getService(IAccountService.class));
+        Assert.isTrue(moduleA.getService(ILogger.class) instanceof ILogger);
+        Assert.isTrue(moduleA.getService(IAccountService.class) instanceof IAccountService);
+    }
+
     @IsTest
     static void test_registry_for_coverage() {
         DI.ServiceRegistry registry = new DI.ServiceRegistry();
@@ -43,7 +70,7 @@ public class DITest {
                     ServiceGroup__c = 'DITest',
                     ServiceLifetime__c = 'Transient',
                     ServiceName__c = 'DITest.ILogger',
-                    ImplementationName__c = 'DITest.AWSS3LoggerFactory'
+                    ImplementationName__c = 'DITest.GenericLoggerFactory<DITest.Logger>'
                 ),
                 new DIRegistry__mdt(
                     ServiceGroup__c = 'DITest',

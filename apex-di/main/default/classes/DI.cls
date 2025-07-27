@@ -69,7 +69,6 @@ public with sharing class DI {
 
         public void replace(String moduleTypeName, String newModuleTypeName) {
             this.moduleReplacements.put(moduleTypeName, newModuleTypeName);
-            this.addModuleWithScopedFactory(newModuleTypeName);
         }
 
         public Module get(Type moduleType) {
@@ -81,18 +80,10 @@ public with sharing class DI {
                 moduleName = this.moduleReplacements.get(moduleName);
             }
 
-            Module module = (Module) this.provider.getService(moduleName);
-            if (module == null) {
-                // once getService is invoked, the null result will be cached.
-                // so we need to remove the cache and re-add the module with scoped factory.
-                this.provider.removeService(moduleName);
-                this.addModuleWithScopedFactory(moduleName);
+            if (!this.services.getDescriptors().containsKey(moduleName)) {
+                this.services.addScopedFactory(moduleName, 'DI.ModuleFactory');
             }
             return (Module) this.provider.getService(moduleName);
-        }
-
-        private void addModuleWithScopedFactory(string moduleName) {
-            this.services.addScopedFactory(moduleName, 'DI.ModuleFactory');
         }
     }
 
@@ -209,12 +200,6 @@ public with sharing class DI {
 
         private ServiceScope createScope() {
             return new ServiceProviderEngineScope(this, false);
-        }
-
-        // private IServiceProvider interface methods
-        public void removeService(String serviceName) {
-            this.callSiteFactory.callSiteCache.remove(serviceName);
-            this.realizedServices.remove(serviceName);
         }
 
         // private IServiceProvider interface methods
@@ -681,7 +666,6 @@ public with sharing class DI {
                 query += ' AND ';
                 query += '(' + String.join(conditions, ' OR ') + ')';
             }
-            System.debug(query);
             return Database.queryWithBinds(query, bindingVars, System.AccessLevel.SYSTEM_MODE);
         }
 
@@ -711,7 +695,8 @@ public with sharing class DI {
                 String lifetime = registry.ServiceLifetime__c;
                 String serviceName = registry.ServiceName__c;
                 String implementationName = registry.ImplementationName__c;
-                Boolean isFactory = registry.ImplementationName__c.endsWith('Factory');
+                Boolean isFactory =
+                    registry.ImplementationName__c.endsWith('Factory') || registry.ImplementationName__c.endsWith('>');
 
                 if (isFactory) {
                     switch on lifetime {
@@ -1003,7 +988,6 @@ public with sharing class DI {
     }
 
     private interface IServiceProvider extends ServiceProvider {
-        void removeService(String serviceName);
         ServiceProviderEngineScope getRootScope();
     }
 
