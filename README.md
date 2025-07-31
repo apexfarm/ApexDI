@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-3.3.2-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-3.3.3-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
 
 A lightweight Apex dependency injection framework ported from .Net Core. It can help:
 
@@ -13,8 +13,8 @@ A lightweight Apex dependency injection framework ported from .Net Core. It can 
 
 | Environment           | Installation Link                                                                                                                                         | Version   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOwBYAW"><img src="docs/images/deploy-button.png"></a> | ver 3.3.2 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TOwBYAW"><img src="docs/images/deploy-button.png"></a>  | ver 3.3.2 |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TPHnYAO"><img src="docs/images/deploy-button.png"></a> | ver 3.3.3 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TPHnYAO"><img src="docs/images/deploy-button.png"></a>  | ver 3.3.3 |
 
 ---
 
@@ -211,7 +211,7 @@ DI.ServiceProvider provider = DI.services()
     .buildServiceProvider();
 ```
 
-A service group name serves as a logical namespace, such as `group::subgroup::subgroup`. If you do not need to load all services within a group, you can target a specific subgroup as shown below. While registry-based registration can be combined with code-based registration, services from the registry are always loaded after those registered in code.
+A service group name serves as a logical namespace, such as `group::subgroup::subgroup`. If you do not need to load all services within a group, you can target a specific subgroup as shown below. While registry-based registration can be combined with code-based registration, services from the registry are always loaded before those registered in code.
 
 ```java
 DI.ServiceProvider provider = DI.services()

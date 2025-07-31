@@ -636,7 +636,11 @@ public with sharing class DI {
     @TestVisible
     private class ServiceRegistry implements IServiceRegistry {
         public IServiceCollection buildServcies(List<String> serviceGroupPrefixes) {
-            Map<String, List<DIRegistry__mdt>> registriesByGroupName = this.groupByRegistries(serviceGroupPrefixes);
+            List<DIRegistry__mdt> registries = this.queryRegistries(serviceGroupPrefixes);
+            Map<String, List<DIRegistry__mdt>> registriesByGroupName = this.groupRegistries(
+                serviceGroupPrefixes,
+                registries
+            );
 
             IServiceCollection services = new ServiceCollectionImpl();
             for (String serviceGroupName : serviceGroupPrefixes) {
@@ -669,8 +673,10 @@ public with sharing class DI {
             return Database.queryWithBinds(query, bindingVars, System.AccessLevel.SYSTEM_MODE);
         }
 
-        private Map<String, List<DIRegistry__mdt>> groupByRegistries(List<String> serviceGroupPrefixes) {
-            List<DIRegistry__mdt> registries = this.queryRegistries(serviceGroupPrefixes);
+        private Map<String, List<DIRegistry__mdt>> groupRegistries(
+            List<String> serviceGroupPrefixes,
+            List<DIRegistry__mdt> registries
+        ) {
             Map<String, List<DIRegistry__mdt>> registriesByGroupPrefix = new Map<String, List<DIRegistry__mdt>>();
             for (String groupPrefix : serviceGroupPrefixes) {
                 List<DIRegistry__mdt> matchingRegistries = new List<DIRegistry__mdt>();
@@ -758,7 +764,12 @@ public with sharing class DI {
             if (!this.serviceGroupPrefixes.isEmpty()) {
                 IServiceRegistry registry = new ServiceRegistry();
                 IServiceCollection services = registry.buildServcies(this.serviceGroupPrefixes);
-                this.addDescriptors(services.getDescriptors());
+                Map<String, ServiceDescriptor> descriptors = services.getDescriptors();
+                for (String serviceName : descriptors.keySet()) {
+                    if (!this.serviceDescriptors.containsKey(serviceName)) {
+                        this.serviceDescriptors.put(serviceName, descriptors.get(serviceName));
+                    }
+                }
             }
             return new ServiceProviderImpl(this.serviceDescriptors);
         }

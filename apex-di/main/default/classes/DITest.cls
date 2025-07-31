@@ -113,8 +113,9 @@ public class DITest {
             .addFromRegistry('DITest::Group3')
             .buildServiceProvider();
         DI.ServiceProvider providerC = DI.services()
+            .addScoped('DITest.ILogger', 'DITest.TableLogger')
             .addFromRegistry('DITest::Group2')
-            .addTransient('DITest.IAccountService', 'DITest.AccountService')
+            .addFromRegistry('DITest::Group3')
             .buildServiceProvider();
 
         // Singleton
@@ -136,7 +137,9 @@ public class DITest {
         Assert.areEqual(providerB.getService(ILogger.class), providerB.getService(ILogger.class));
         Assert.areEqual(providerC.getService(ILogger.class), providerC.getService(ILogger.class));
         Assert.areNotEqual(providerA.getService(ILogger.class), providerB.getService(ILogger.class));
-        Assert.areNotEqual(providerA.getService(ILogger.class), providerC.getService(ILogger.class));
+
+        Assert.isTrue(providerB.getService(ILogger.class) instanceof AWSS3Logger);
+        Assert.isTrue(providerC.getService(ILogger.class) instanceof TableLogger);
 
         // Transient
         Assert.areNotEqual(null, providerA.getService(IAccountService.class));
