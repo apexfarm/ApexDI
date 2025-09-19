@@ -56,11 +56,14 @@ public with sharing class DI {
         private IServiceCollection services { get; set; } // module services
         private IServiceProvider provider { get; set; } // module provider
         private Map<String, String> moduleReplacements;
+        private Map<String, Module> cachedModules;
 
         private GlobalModules() {
             this.services = new ServiceCollectionImpl();
             this.provider = new ServiceProviderImpl(this.services.getDescriptors());
             this.moduleReplacements = new Map<String, String>();
+            this.cachedModules = new Map<String, Module>();
+            this.services.addScopedFactory('DI.PseudoModule', 'DI.ModuleFactory');
         }
 
         public void replace(Type moduleType, Type newModuleType) {
@@ -76,6 +79,14 @@ public with sharing class DI {
         }
 
         public Module get(String moduleName) {
+            if (String.isBlank(moduleName)) {
+                throw new DIIllegalArgumentException('get(String moduleName): moduleName cannot be blank.');
+            }
+
+            if (moduleName.toUpperCase().startsWith('PSEUDO<') && moduleName.endsWith('>')) {
+                moduleName = 'DI.PseudoModule<' + moduleName.substring(7, moduleName.length() - 1) + '>';
+            }
+
             if (this.moduleReplacements.containsKey(moduleName)) {
                 moduleName = this.moduleReplacements.get(moduleName);
             }
@@ -87,13 +98,23 @@ public with sharing class DI {
         }
     }
 
-    public class ModuleFactory implements DI.ServiceFactory {
-        public Object newInstance(ServiceProvider provider, Type moduleType) {
+    public class ModuleFactory implements DI.GenericServiceFactory {
+        public Object newInstance(ServiceProvider provider, Type moduleType, List<String> parameterNames) {
             if (moduleType == null || !Module.class.isAssignableFrom(moduleType)) {
                 throw new DITypeException('Module [' + moduleType + '] doesn\'t extend [DI.Module].');
             }
 
-            Module module = (Module) moduleType.newInstance();
+            Module module;
+            if (PseudoModule.class.isAssignableFrom(moduleType)) {
+                if (parameterNames == null || parameterNames.isEmpty()) {
+                    throw new DIIllegalArgumentException(
+                        'Pseudo Module requires at least one parameter for service group name.'
+                    );
+                }
+                module = new PseudoModule(parameterNames);
+            } else {
+                module = (Module) moduleType.newInstance();
+            }
 
             ModuleCollectionImpl modules = new ModuleCollectionImpl();
             module.import(modules);
@@ -139,6 +160,20 @@ public with sharing class DI {
         }
 
         protected abstract void configure(ServiceCollection services);
+    }
+
+    public class PseudoModule extends Module {
+        private List<String> groupNames { get; set; }
+
+        private PseudoModule(List<String> groupNames) {
+            this.groupNames = groupNames;
+        }
+
+        protected override void configure(ServiceCollection services) {
+            for (String groupName : this.groupNames) {
+                services.addFromRegistry(groupName);
+            }
+        }
     }
 
     // #endregion
@@ -379,7 +414,6 @@ public with sharing class DI {
                 ResultCache cache = new ResultCache(descriptor.lifetime, fullServiceName);
                 return descriptor.createCallSite(cache);
             }
-
             return null;
         }
     }
@@ -484,17 +518,18 @@ public with sharing class DI {
         }
 
         public override ServiceCallSite createCallSite(ResultCache cache) {
-            List<Type> parameterTypes = null;
+            List<String> parameterNames = null;
             String fullServiceName = cache.key.serviceName;
             if (fullServiceName.endsWith('>')) {
-                parameterTypes = new List<Type>();
+                parameterNames = new List<String>();
                 List<String> splits = fullServiceName.replace('>', '').split('<');
-                for (String genericName : splits[1].split(',')) {
-                    parameterTypes.add(Type.forName(genericName.trim()));
+                if (splits.size() == 2) {
+                    for (String genericName : splits[1].split(',')) {
+                        parameterNames.add(genericName.trim());
+                    }
                 }
             }
-
-            return new FactoryCallSite(cache, this.serviceName, this.factoryTypeName, parameterTypes);
+            return new FactoryCallSite(cache, this.serviceName, this.factoryTypeName, parameterNames);
         }
     }
 
@@ -552,13 +587,13 @@ public with sharing class DI {
 
     private class FactoryCallSite extends ServiceCallSite {
         private IServiceFactory factory { get; set; }
-        private List<Type> parameterTypes { get; set; }
+        private List<String> parameterNames { get; set; }
 
         private FactoryCallSite(
             ResultCache cache,
             String serviceName,
             String factoryTypeName,
-            List<Type> parameterTypes
+            List<String> parameterNames
         ) {
             super(cache);
             Type factoryType = Type.forName(factoryTypeName);
@@ -582,7 +617,7 @@ public with sharing class DI {
 
             this.kind = CallSiteKind.Factory;
             this.serviceName = serviceName;
-            this.parameterTypes = parameterTypes;
+            this.parameterNames = parameterNames;
             this.factory = (IServiceFactory) factoryType.newInstance();
         }
 
@@ -591,7 +626,7 @@ public with sharing class DI {
                 return ((ServiceFactory) this.factory).newInstance(scope, Type.forName(this.serviceName));
             } else if (this.factory instanceof GenericServiceFactory) {
                 return ((GenericServiceFactory) this.factory)
-                    .newInstance(scope, Type.forName(this.serviceName), this.parameterTypes);
+                    .newInstance(scope, Type.forName(this.serviceName), this.parameterNames);
             }
             throw new NoSuchElementException();
         }
@@ -962,7 +997,7 @@ public with sharing class DI {
     }
 
     public interface GenericServiceFactory extends IServiceFactory {
-        Object newInstance(ServiceProvider provider, Type serviceType, List<Type> parameterTypes);
+        Object newInstance(ServiceProvider provider, Type serviceType, List<String> parameterNames);
     }
 
     public interface ServiceCollection {

@@ -90,7 +90,7 @@ public class DITest {
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         DI.ServiceProvider providerB = DI.services().addFromRegistry('NoGroup').buildServiceProvider();
     }
@@ -150,6 +150,51 @@ public class DITest {
         Assert.areNotEqual(providerC.getService(IAccountService.class), providerC.getService(IAccountService.class));
         Assert.areNotEqual(providerA.getService(IAccountService.class), providerB.getService(IAccountService.class));
         Assert.areNotEqual(providerA.getService(IAccountService.class), providerC.getService(IAccountService.class));
+    }
+
+    @IsTest
+    static void test_registry_pseudo_module() {
+        DI.ServiceCollection services = DI.services().addFromRegistry('DITest');
+        DI.ServiceProvider providerA = services.buildServiceProvider();
+        if (
+            providerA.getService(IUtility.class) == null ||
+            providerA.getService(ILogger.class) == null ||
+            providerA.getService(IAccountService.class) == null
+        ) {
+            return;
+        }
+
+        DI.Module moduleB = DI.modules().get('Pseudo<DITest::Group1, DITest::Group2, DITest::Group3>');
+        DI.Module moduleC = DI.modules().get('PsEuDo<DITest::Group1, DITest::Group2, DITest::Group3>');
+        DI.Module moduleD = DI.modules().get('DI.PseudoModule<DITest>');
+
+        Exception exp;
+        try {
+            DI.Module moduleE = DI.modules().get('Pseudo<>');
+        } catch (Exception ex) {
+            exp = ex;
+        }
+        Assert.isNotNull(exp);
+
+        // Singleton
+        Assert.isNotNull(providerA.getService(IUtility.class));
+        Assert.isNotNull(moduleB.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService(IUtility.class));
+        Assert.areEqual(moduleB.getService(IUtility.class), moduleB.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), moduleB.getService(IUtility.class));
+        Assert.areEqual(providerA.getService(IUtility.class), providerA.getService('DITest.IUtility'));
+        Assert.areEqual(moduleB.getService(IUtility.class), moduleB.getService('DITest.IUtility'));
+        Assert.areEqual(providerA.getService(IUtility.class), moduleB.getService('DITest.IUtility'));
+
+        // Scoped
+        Assert.areNotEqual(null, providerA.getService(ILogger.class));
+        Assert.areNotEqual(null, moduleB.getService(ILogger.class));
+        Assert.areNotEqual(null, moduleC.getService(ILogger.class));
+        Assert.areNotEqual(null, moduleD.getService(ILogger.class));
+        Assert.areEqual(providerA.getService(ILogger.class), providerA.getService(ILogger.class));
+        Assert.areEqual(moduleB.getService(ILogger.class), moduleC.getService(ILogger.class));
+        Assert.areNotEqual(providerA.getService(ILogger.class), moduleB.getService(ILogger.class));
+        Assert.areNotEqual(moduleB.getService(ILogger.class), moduleD.getService(ILogger.class));
     }
 
     // #endregion
@@ -431,20 +476,6 @@ public class DITest {
         Assert.areEqual(awss3Logger, provider.getService('DITest.ILogger<DITest.IAWSS3Writer, DITest.INoService>'));
     }
 
-    // ! Comment out before release, so no dependencies to standard SObjects such as Account and Contact!
-    // @IsTest
-    // static void test_factories_generic_services_sobjects() {
-    //     DI.ServiceProvider provider = DI.services()
-    //         .addSingletonFactory('DITest.IRepository', 'DITest.RepositoryFactory<DITest.Repository>')
-    //         .buildServiceProvider();
-
-    //     Repository repository = (Repository) provider.getService('DITest.IRepository<Account, Contact>');
-    //     Assert.areEqual(2, repository.sobjectTypes.size());
-    //     Assert.areEqual(Account.SObjectType, repository.sobjectTypes[0]);
-    //     Assert.areEqual(Contact.SObjectType, repository.sobjectTypes[1]);
-    //     throw new NoSuchElementException('Comment out before release!');
-    // }
-
     public class GlobalConfiguration {
     }
 
@@ -507,30 +538,8 @@ public class DITest {
     }
 
     public class GenericLoggerFactory implements DI.GenericServiceFactory {
-        public ILogger newInstance(DI.ServiceProvider provider, Type servcieType, List<Type> parameterTypes) {
-            return new Logger((IWriter) provider.getService(parameterTypes[0]));
-        }
-    }
-
-    public interface IRepository {
-    }
-
-    public class Repository implements IRepository {
-        private List<SObjectType> sobjectTypes { get; set; }
-
-        public Repository(List<SObjectType> sobjectTypes) {
-            this.sobjectTypes = sobjectTypes;
-        }
-    }
-
-    public class RepositoryFactory implements DI.GenericServiceFactory {
-        public IRepository newInstance(DI.ServiceProvider provider, Type servcieType, List<Type> parameterTypes) {
-            List<SObjectType> sobjectTypes = new List<SObjectType>();
-            for (Type parameterType : parameterTypes) {
-                sobjectTypes.add(((SObject) parameterType.newInstance()).getSObjectType());
-            }
-
-            return new Repository(sobjectTypes);
+        public ILogger newInstance(DI.ServiceProvider provider, Type servcieType, List<String> parameterNames) {
+            return new Logger((IWriter) provider.getService(parameterNames[0]));
         }
     }
 
@@ -728,7 +737,7 @@ public class DITest {
             } catch (DI.DIIllegalArgumentException ex) {
                 exp = ex;
             }
-            Assert.isTrue(exp != null);
+            Assert.isNotNull(exp);
 
             exp = null;
             try {
@@ -737,7 +746,7 @@ public class DITest {
             } catch (DI.DIIllegalArgumentException ex) {
                 exp = ex;
             }
-            Assert.isTrue(exp != null);
+            Assert.isNotNull(exp);
 
             throw new NullPointerException();
         }
@@ -752,6 +761,16 @@ public class DITest {
 
         noService = (INoService) provider.getService('DITest.INoService');
         Assert.areEqual(null, noService);
+
+        provider = DI.services().addTransient('DITest.INoService', 'DITest.AWSS3Logger').buildServiceProvider();
+        ILogger logger1 = (ILogger) provider.getService('DITest.INoService');
+        Assert.isNotNull(logger1);
+
+        provider = DI.services()
+            .addTransientFactory('DITest.INoService', 'DITest.AWSS3LoggerFactory')
+            .buildServiceProvider();
+        ILogger logger2 = (ILogger) provider.getService('DITest.INoService');
+        Assert.isNotNull(logger2);
     }
 
     @IsTest
@@ -786,7 +805,7 @@ public class DITest {
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         exp = null;
         try {
@@ -795,7 +814,7 @@ public class DITest {
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         exp = null;
         try {
@@ -803,7 +822,7 @@ public class DITest {
         } catch (DI.DITypeException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         exp = null;
         try {
@@ -811,7 +830,7 @@ public class DITest {
         } catch (DI.DITypeException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         exp = null;
         try {
@@ -819,7 +838,7 @@ public class DITest {
         } catch (NullPointerException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         exp = null;
         try {
@@ -827,7 +846,16 @@ public class DITest {
         } catch (DI.DITypeException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
+
+        exp = null;
+        try {
+            String noName = null;
+            DI.modules().get(noName);
+        } catch (DI.DIIllegalArgumentException ex) {
+            exp = ex;
+        }
+        Assert.isNotNull(exp);
     }
 
     @IsTest
@@ -838,7 +866,7 @@ public class DITest {
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
 
         exp = null;
         try {
@@ -846,7 +874,7 @@ public class DITest {
         } catch (DI.DIIllegalArgumentException ex) {
             exp = ex;
         }
-        Assert.isTrue(exp != null);
+        Assert.isNotNull(exp);
     }
 
     public class ExceptionModule1 extends DI.Module {
