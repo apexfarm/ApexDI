@@ -104,7 +104,7 @@ public with sharing class AccountController {
 
 ## 1. 性能
 
-<p align="center"><img src="images/benchmark.png" width=800 alt="性能基准"></p>
+<p align="center"><img src="images/benchmark.png" width=650 alt="性能基准"></p>
 
 1. 使用类名注册服务目前是最快的方案，几乎没有性能损耗（**绿色线**）。
 2. 推荐使用接口和抽象进行服务注册和解析，最佳实践且无性能影响。
@@ -190,7 +190,7 @@ Utility utility = (Utility) provider.getService(Utility.class);
 
 ### 2.3 服务覆盖
 
-同一接口注册多个服务时，只有最后一个会被解析。
+同一接口注册多个同名服务时，只有最后一个会被解析。
 
 ```java
 public interface ILogger { void error(); void warn(); }
@@ -353,7 +353,7 @@ ILogger logger = (ILogger) logModule.getService(ILogger.class);
 
 ### 4.2 伪模块
 
-可通过传入组名字符串，直接将注册表服务组加载为单例 `DI.Module`。也可将多个服务组合并为一个伪模块。
+可通过传入 `Pseudo<服务组前缀>` 字符串，直接将注册表服务组加载为单例 `DI.Module`。也可将多个服务组合并为一个伪模块。
 
 <p align="center"><img src="images/registry.png" width=800 alt="DI 注册表"></p>
 

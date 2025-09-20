@@ -104,7 +104,7 @@ public with sharing class AccountController {
 
 ## 1. Performance
 
-<p align="center"><img src="./docs/images/benchmark.png" width=800 alt="Performance Benchmark"></p>
+<p align="center"><img src="./docs/images/benchmark.png" width=650 alt="Performance Benchmark"></p>
 
 1. Service registration with class names is currently the fastest solution, compared to strong class types. They almost cost nothing (**green color line**).
 2. Feel free to use interfaces and abstractions for service registration and resolution, this is the best practice. They have no impact to performance.
@@ -353,7 +353,7 @@ ILogger logger = (ILogger) logModule.getService(ILogger.class);
 
 ### 4.2 Pseudo Module
 
-You can load a registry service group directly as a singleton `DI.Module` by passing the group name as a string parameter. Multiple service groups can also be combined into a single pseudo module.
+You can load a registry service group directly as a singleton `DI.Module` by passing `Pseudo<Service Group Prefix>`. Multiple service groups can also be combined into a single pseudo module.
 
 <p align="center"><img src="./docs/images/registry.png" width=800 alt="DI Registry"></p>
 
