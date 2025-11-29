@@ -3,8 +3,8 @@
     {
       "path": "apex-di",
       "package": "ApexDI",
-      "versionName": "ver 3.4.0",
-      "versionNumber": "3.4.0.NEXT",
+      "versionName": "ver 3.4.1",
+      "versionNumber": "3.4.1.NEXT",
       "default": true
     }
   ],
@@ -22,6 +22,7 @@
     "ApexDI@3.3.1-3": "04tGC000007TOw1YAG",
     "ApexDI@3.3.2-1": "04tGC000007TOwBYAW",
     "ApexDI@3.3.3-1": "04tGC000007TPHnYAO",
-    "ApexDI@3.4.0-1": "04tGC000007TPs7YAG"
+    "ApexDI@3.4.0-1": "04tGC000007TPs7YAG",
+    "ApexDI@3.4.1-1": "04tGC0000071zxZYAQ"
   }
 }

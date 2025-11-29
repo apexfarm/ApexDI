@@ -1,6 +1,6 @@
 # Apex DI（依赖注入）
 
-![](https://img.shields.io/badge/version-3.4.0-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-3.4.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
 
 Apex DI 是一个轻量级的 Apex 依赖注入框架，灵感来自 .NET Core。它可以帮助你：
 
@@ -13,8 +13,8 @@ Apex DI 是一个轻量级的 Apex 依赖注入框架，灵感来自 .NET Core�
 
 | 环境      | 安装链接                                                                                                                                             | 版本   |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 生产/开发 | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TPs7YAG"><img src="images/deploy-button.png"></a> | v3.4.0 |
-| 沙盒      | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TPs7YAG"><img src="images/deploy-button.png"></a>  | v3.4.0 |
+| 生产/开发 | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC0000071zxZYAQ"><img src="images/deploy-button.png"></a> | v3.4.1 |
+| 沙盒      | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC0000071zxZYAQ"><img src="images/deploy-button.png"></a>  | v3.4.1 |
 
 ---
 
@@ -35,7 +35,7 @@ Apex DI 是一个轻量级的 Apex 依赖注入框架，灵感来自 .NET Core�
 
 **v3.1**：
 
-- [服务工厂接口](#64-服务工厂接口)参数顺序变更：
+- [服务工厂接口](#64-服务工厂)参数顺序变更：
   - `newInstance(DI.ServiceProvider provider, Type serviceType)`
   - `newInstance(DI.ServiceProvider provider, Type serviceType, List<String> parameterNames)`
 

@@ -1,6 +1,6 @@
 # Apex DI
 
-![](https://img.shields.io/badge/version-3.4.0-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
+![](https://img.shields.io/badge/version-3.4.1-brightgreen.svg) ![](https://img.shields.io/badge/build-passing-brightgreen.svg) ![](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)
 
 A lightweight Apex dependency injection framework inspired by .NET Core. It helps you:
 
@@ -13,8 +13,8 @@ A lightweight Apex dependency injection framework inspired by .NET Core. It help
 
 | Environment           | Installation Link                                                                                                                                         | Version   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TPs7YAG"><img src="docs/images/deploy-button.png"></a> | ver 3.4.0 |
-| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC000007TPs7YAG"><img src="docs/images/deploy-button.png"></a>  | ver 3.4.0 |
+| Production, Developer | <a target="_blank" href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tGC0000071zxZYAQ"><img src="docs/images/deploy-button.png"></a> | ver 3.4.1 |
+| Sandbox               | <a target="_blank" href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tGC0000071zxZYAQ"><img src="docs/images/deploy-button.png"></a>  | ver 3.4.1 |
 
 ---
 
@@ -35,7 +35,7 @@ A lightweight Apex dependency injection framework inspired by .NET Core. It help
 
 **v3.1**:
 
-- [Service Factory Interface](#64-service-factory-interface) parameter order changes:
+- [Service Factory Interface](#64-service-factory) parameter order changes:
   - `newInstance(DI.ServiceProvider provider, Type serviceType)`
   - `newInstance(DI.ServiceProvider provider, Type serviceType, List<String> parameterNames)`
 

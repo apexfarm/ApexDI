@@ -57,29 +57,10 @@ public class DITest {
 
     @IsTest
     static void test_registry_for_coverage() {
-        DI.ServiceRegistry registry = new DI.ServiceRegistry();
-        DI.IServiceCollection servcies = registry.createServiceCollection(
-            new List<DIRegistry__mdt>{
-                new DIRegistry__mdt(
-                    ServiceGroup__c = 'DITest',
-                    ServiceLifetime__c = 'Singleton',
-                    ServiceName__c = 'DITest.ILogger',
-                    ImplementationName__c = 'DITest.AWSS3LoggerFactory'
-                ),
-                new DIRegistry__mdt(
-                    ServiceGroup__c = 'DITest',
-                    ServiceLifetime__c = 'Transient',
-                    ServiceName__c = 'DITest.ILogger',
-                    ImplementationName__c = 'DITest.GenericLoggerFactory<DITest.Logger>'
-                ),
-                new DIRegistry__mdt(
-                    ServiceGroup__c = 'DITest',
-                    ServiceLifetime__c = 'Scoped',
-                    ServiceName__c = 'DITest.IAccountService',
-                    ImplementationName__c = 'DITest.AccountService'
-                )
-            }
-        );
+        DI.ServiceCollectionImpl services = (DI.ServiceCollectionImpl) DI.services();
+        services.addService('Singleton', 'DITest.ILogger', 'DITest.AWSS3LoggerFactory');
+        services.addService('Transient', 'DITest.ILogger', 'DITest.GenericLoggerFactory<DITest.Logger>');
+        services.addService('Scoped', 'DITest.IAccountService', 'DITest.AccountService');
     }
 
     @IsTest
@@ -538,7 +519,7 @@ public class DITest {
     }
 
     public class GenericLoggerFactory implements DI.GenericServiceFactory {
-        public ILogger newInstance(DI.ServiceProvider provider, Type servcieType, List<String> parameterNames) {
+        public ILogger newInstance(DI.ServiceProvider provider, Type serviceType, List<String> parameterNames) {
             return new Logger((IWriter) provider.getService(parameterNames[0]));
         }
     }
@@ -729,7 +710,7 @@ public class DITest {
     }
 
     public class NullExceptionLoggerFactory implements DI.ServiceFactory {
-        public ILogger newInstance(DI.ServiceProvider provider, Type servcieType) {
+        public ILogger newInstance(DI.ServiceProvider provider, Type serviceType) {
             Exception exp;
             try {
                 Type noType = null;

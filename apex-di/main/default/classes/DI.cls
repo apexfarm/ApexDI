@@ -662,58 +662,12 @@ public with sharing class DI {
     // ==========================
 
     // ==========================
-    // #region Service Collection
-
-    private interface IServiceRegistry {
-        IServiceCollection buildServcies(List<String> serviceGroupPrefixes);
-    }
-
-    @TestVisible
+    // #region Service Collectio
     private class ServiceRegistry implements IServiceRegistry {
-        public IServiceCollection buildServcies(List<String> serviceGroupPrefixes) {
-            List<DIRegistry__mdt> registries = this.queryRegistries(serviceGroupPrefixes);
-            Map<String, List<DIRegistry__mdt>> registriesByGroupName = this.groupRegistries(
-                serviceGroupPrefixes,
-                registries
-            );
-
-            IServiceCollection services = new ServiceCollectionImpl();
-            for (String serviceGroupName : serviceGroupPrefixes) {
-                List<DIRegistry__mdt> registriesForGroup = registriesByGroupName.get(serviceGroupName);
-                IServiceCollection servicesForGroup = this.createServiceCollection(registriesForGroup);
-                services.addDescriptors(servicesForGroup.getDescriptors());
-            }
-            return services;
-        }
-
-        private List<DIRegistry__mdt> queryRegistries(List<String> serviceGroupPrefixes) {
-            Map<String, Object> bindingVars = new Map<String, Object>();
-            Integer index = 0;
-            for (String groupPrefix : serviceGroupPrefixes) {
-                index++;
-                bindingVars.put('tmpVar' + index, groupPrefix + '%');
-            }
-
-            String query = 'SELECT ServiceGroup__c, ServiceLifetime__c, ServiceName__c, ImplementationName__c FROM DIRegistry__mdt';
-            query += ' WHERE IsActive__c = TRUE';
-            List<String> conditions = new List<String>();
-            for (String groupPrefix : serviceGroupPrefixes) {
-                conditions.add(String.format('ServiceGroup__c LIKE :{0}', new List<String>{ 'tmpVar' + index }));
-                index--;
-            }
-            if (!conditions.isEmpty()) {
-                query += ' AND ';
-                query += '(' + String.join(conditions, ' OR ') + ')';
-            }
-            return Database.queryWithBinds(query, bindingVars, System.AccessLevel.SYSTEM_MODE);
-        }
-
-        private Map<String, List<DIRegistry__mdt>> groupRegistries(
-            List<String> serviceGroupPrefixes,
-            List<DIRegistry__mdt> registries
-        ) {
+        public Map<String, List<DIRegistry__mdt>> loadServiceGroups(List<String> groupPrefixes) {
+            List<DIRegistry__mdt> registries = this.queryRegistries(groupPrefixes);
             Map<String, List<DIRegistry__mdt>> registriesByGroupPrefix = new Map<String, List<DIRegistry__mdt>>();
-            for (String groupPrefix : serviceGroupPrefixes) {
+            for (String groupPrefix : groupPrefixes) {
                 List<DIRegistry__mdt> matchingRegistries = new List<DIRegistry__mdt>();
                 List<DIRegistry__mdt> remainingRegistries = new List<DIRegistry__mdt>();
                 for (DIRegistry__mdt registry : registries) {
@@ -729,55 +683,36 @@ public with sharing class DI {
             return registriesByGroupPrefix;
         }
 
-        @TestVisible
-        private IServiceCollection createServiceCollection(List<DIRegistry__mdt> registries) {
-            IServiceCollection services = new ServiceCollectionImpl();
-            for (DIRegistry__mdt registry : registries) {
-                String lifetime = registry.ServiceLifetime__c;
-                String serviceName = registry.ServiceName__c;
-                String implementationName = registry.ImplementationName__c;
-                Boolean isFactory =
-                    registry.ImplementationName__c.endsWith('Factory') || registry.ImplementationName__c.endsWith('>');
-
-                if (isFactory) {
-                    switch on lifetime {
-                        when 'Singleton' {
-                            services.addSingletonFactory(serviceName, implementationName);
-                        }
-                        when 'Scoped' {
-                            services.addScopedFactory(serviceName, implementationName);
-                        }
-                        when 'Transient' {
-                            services.addTransientFactory(serviceName, implementationName);
-                        }
-                    }
-                } else {
-                    switch on lifetime {
-                        when 'Singleton' {
-                            services.addSingleton(serviceName, implementationName);
-                        }
-                        when 'Scoped' {
-                            services.addScoped(serviceName, implementationName);
-                        }
-                        when 'Transient' {
-                            services.addTransient(serviceName, implementationName);
-                        }
-                    }
-                }
+        private List<DIRegistry__mdt> queryRegistries(List<String> groupPrefixes) {
+            Map<String, Object> bindingVars = new Map<String, Object>();
+            Integer index = 0;
+            for (String groupPrefix : groupPrefixes) {
+                index++;
+                bindingVars.put('tmpVar' + index, groupPrefix + '%');
             }
 
-            return services;
+            String query = 'SELECT ServiceGroup__c, ServiceLifetime__c, ServiceName__c, ImplementationName__c FROM DIRegistry__mdt WHERE IsActive__c = TRUE';
+
+            List<String> conditions = new List<String>();
+            for (String groupPrefix : groupPrefixes) {
+                conditions.add(String.format('ServiceGroup__c LIKE :{0}', new List<String>{ 'tmpVar' + index }));
+                index--;
+            }
+            if (!conditions.isEmpty()) {
+                query += ' AND (' + String.join(conditions, ' OR ') + ')';
+            }
+            return Database.queryWithBinds(query, bindingVars, System.AccessLevel.SYSTEM_MODE);
         }
     }
 
     @TestVisible
     private virtual class ServiceCollectionImpl implements IServiceCollection {
         private final Map<String, ServiceDescriptor> serviceDescriptors;
-        private final List<String> serviceGroupPrefixes;
+        private final List<String> serviceGroupNames;
 
         {
             this.serviceDescriptors = new Map<String, ServiceDescriptor>();
-            this.serviceGroupPrefixes = new List<String>();
+            this.serviceGroupNames = new List<String>();
         }
 
         // private IServiceCollection interface methods
@@ -795,27 +730,58 @@ public with sharing class DI {
             this.serviceDescriptors.putAll(descriptors);
         }
 
-        public ServiceProvider buildServiceProvider() {
-            if (!this.serviceGroupPrefixes.isEmpty()) {
-                IServiceRegistry registry = new ServiceRegistry();
-                IServiceCollection services = registry.buildServcies(this.serviceGroupPrefixes);
-                Map<String, ServiceDescriptor> descriptors = services.getDescriptors();
-                for (String serviceName : descriptors.keySet()) {
-                    if (!this.serviceDescriptors.containsKey(serviceName)) {
-                        this.serviceDescriptors.put(serviceName, descriptors.get(serviceName));
+        private void addServiceGroups(List<String> serviceGroupNames) {
+            if (serviceGroupNames.isEmpty()) {
+                return;
+            }
+
+            IServiceRegistry serviceRegistry = new ServiceRegistry();
+            Map<String, List<DIRegistry__mdt>> registries = serviceRegistry.loadServiceGroups(serviceGroupNames);
+
+            for (String serviceGroupName : serviceGroupNames) {
+                for (DIRegistry__mdt registry : registries.get(serviceGroupName)) {
+                    if (this.serviceDescriptors.containsKey(registry.ServiceName__c)) {
+                        continue; // Skip registry servcie if already registered in code.
                     }
+                    addService(registry.ServiceLifetime__c, registry.ServiceName__c, registry.ImplementationName__c);
                 }
             }
+        }
+
+        @TestVisible
+        private void addService(String lifetime, String serviceName, String implementationName) {
+            Boolean isFactory = implementationName.endsWith('Factory') || implementationName.endsWith('>');
+            switch on lifetime {
+                when 'Singleton' {
+                    ServiceCollection services = isFactory
+                        ? this.addSingletonFactory(serviceName, implementationName)
+                        : this.addSingleton(serviceName, implementationName);
+                }
+                when 'Scoped' {
+                    ServiceCollection services = isFactory
+                        ? this.addScopedFactory(serviceName, implementationName)
+                        : this.addScoped(serviceName, implementationName);
+                }
+                when 'Transient' {
+                    ServiceCollection services = isFactory
+                        ? this.addTransientFactory(serviceName, implementationName)
+                        : this.addTransient(serviceName, implementationName);
+                }
+            }
+        }
+
+        public ServiceProvider buildServiceProvider() {
+            this.addServiceGroups(this.serviceGroupNames);
             return new ServiceProviderImpl(this.serviceDescriptors);
         }
 
-        public ServiceCollection addFromRegistry(String servcieGroupPrefix) {
-            if (String.isBlank(servcieGroupPrefix)) {
+        public ServiceCollection addFromRegistry(String serviceGroupPrefix) {
+            if (String.isBlank(serviceGroupPrefix)) {
                 throw new DIIllegalArgumentException(
-                    'addFromRegistry(String servcieGroupPrefix): servcieGroupPrefix cannot be blank.'
+                    'addFromRegistry(String serviceGroupPrefix): serviceGroupPrefix cannot be blank.'
                 );
             }
-            this.serviceGroupPrefixes.add(servcieGroupPrefix);
+            this.serviceGroupNames.add(serviceGroupPrefix);
             return this;
         }
 
@@ -1003,7 +969,7 @@ public with sharing class DI {
     public interface ServiceCollection {
         ServiceProvider buildServiceProvider();
 
-        ServiceCollection addFromRegistry(String servcieGroupPrefix);
+        ServiceCollection addFromRegistry(String serviceGroupPrefix);
 
         ServiceCollection addTransient(String serviceTypeName);
         ServiceCollection addTransient(String serviceTypeName, Object instance);
@@ -1019,6 +985,10 @@ public with sharing class DI {
         ServiceCollection addScoped(String serviceTypeName, Object instance);
         ServiceCollection addScoped(String serviceName, String implementationTypeName);
         ServiceCollection addScopedFactory(String serviceName, String factoryTypeName);
+    }
+
+    private interface IServiceRegistry {
+        Map<String, List<DIRegistry__mdt>> loadServiceGroups(List<String> groupPrefixes);
     }
 
     @TestVisible
